@@ -25,7 +25,7 @@ Authenticator auth_keytab:/var/hpss/etc/gridftp.keytab
 # updated. The value is not case sensitive. The default is off.
 #   QuotaSupport on
 #
-#QuotaSupport on
+QuotaSupport on
 
 # (optional) UDAChecksumSupport
 # Causes checksums to be stored automatically within UDAs so that the checksum
@@ -33,4 +33,4 @@ Authenticator auth_keytab:/var/hpss/etc/gridftp.keytab
 # case sensitive. The default is off.
 #   UDAChecksumSupport on
 #
-#UDAChecksumSupport on
+UDAChecksumSupport on
