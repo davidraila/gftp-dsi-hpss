@@ -53,14 +53,12 @@
 #include "stage.h"
 
 typedef enum {
-	STAGE_FILE_RESIDENT,
-	STAGE_FILE_TAPE_ONLY,
-	STAGE_FILE_ARCHIVED,
+  STAGE_FILE_RESIDENT,
+  STAGE_FILE_TAPE_ONLY,
+  STAGE_FILE_ARCHIVED,
 } stage_file_residency;
 
-void
-stage(globus_gfs_operation_t      Operation,
-      globus_gfs_command_info_t * CommandInfo,
-      commands_callback           Callback);
+void stage(globus_gfs_operation_t Operation,
+           globus_gfs_command_info_t *CommandInfo, commands_callback Callback);
 
 #endif /* HPSS_DSI_STAGE_H */

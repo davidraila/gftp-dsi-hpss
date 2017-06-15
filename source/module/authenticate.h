@@ -46,10 +46,7 @@
  */
 #include <globus_gridftp_server.h>
 
-globus_result_t
-authenticate(char * LoginName,
-             char * AuthenticationMech,
-             char * Authenticator,
-             char * UserName);
+globus_result_t authenticate(char *LoginName, char *AuthenticationMech,
+                             char *Authenticator, char *UserName);
 
 #endif /* HPSS_DSI_AUTHENTICATE_H */

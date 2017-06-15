@@ -47,13 +47,10 @@
 /*
  * Only allowed an int return, must log errors internally.
  */
-int
-loader_activate(const char                 * DsiName,
-                const char                 * DsiInterface,
-                globus_module_descriptor_t * Module);
+int loader_activate(const char *DsiName, const char *DsiInterface,
+                    globus_module_descriptor_t *Module);
 
 /*
  * Only allowed an int return, must log errors internally.
  */
-int
-loader_deactivate(const char * DsiName);
+int loader_deactivate(const char *DsiName);

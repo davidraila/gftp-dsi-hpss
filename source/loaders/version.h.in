@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -44,12 +44,5 @@
  */
 #include <globus_module.h>
 
-static
-globus_version_t version = 
-{
-    @MAJOR_VERSION@,
-    @MINOR_VERSION@,
-    @DIRT_TIMESTAMP@,
-    @DIRT_BRANCH_ID@
-};
-
+static globus_version_t version = {@MAJOR_VERSION@, @MINOR_VERSION@,
+                                   @DIRT_TIMESTAMP@, @DIRT_BRANCH_ID@};

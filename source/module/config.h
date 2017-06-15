@@ -46,20 +46,18 @@
  */
 #include <globus_gridftp_server.h>
 
-#define DEFAULT_CONFIG_FILE   "/var/hpss/etc/gridftp.conf"
+#define DEFAULT_CONFIG_FILE "/var/hpss/etc/gridftp.conf"
 
 typedef struct config {
-	char * LoginName;
-	char * AuthenticationMech;
-	char * Authenticator;
-	int    QuotaSupport;
-	int    UDAChecksumSupport;
+  char *LoginName;
+  char *AuthenticationMech;
+  char *Authenticator;
+  int QuotaSupport;
+  int UDAChecksumSupport;
 } config_t;
 
-globus_result_t
-config_init(config_t ** Config);
+globus_result_t config_init(config_t **Config);
 
-void
-config_destroy(config_t * Config);
+void config_destroy(config_t *Config);
 
 #endif /* HPSS_DSI_CONFIG_H */

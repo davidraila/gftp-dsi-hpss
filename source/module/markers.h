@@ -52,17 +52,12 @@
  */
 #include <globus_gridftp_server.h>
 
-void
-markers_update_perf_markers(globus_gfs_operation_t Operation,
-                            globus_off_t           Offset,
-                            globus_off_t           Length);
+void markers_update_perf_markers(globus_gfs_operation_t Operation,
+                                 globus_off_t Offset, globus_off_t Length);
 
-void
-markers_update_restart_markers(globus_gfs_operation_t Operation,
-                               globus_off_t           Offset,
-                               globus_off_t           Length);
+void markers_update_restart_markers(globus_gfs_operation_t Operation,
+                                    globus_off_t Offset, globus_off_t Length);
 
-int
-markers_restart_supported();
+int markers_restart_supported();
 
 #endif /* HPSS_DSI_MARKERS_H */
