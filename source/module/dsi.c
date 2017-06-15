@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2012-2014 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2012-2014 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -178,6 +178,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   globus_result_t result = GLOBUS_SUCCESS;
   globus_gfs_stat_t gfs_stat;
 
+#ifdef USE_SYMLINK_INFO
   switch (StatInfo->use_symlink_info) {
   case 0:
     result = stat_object(StatInfo->pathname, &gfs_stat);
@@ -186,6 +187,9 @@ void dsi_stat(globus_gfs_operation_t Operation,
     result = stat_link(StatInfo->pathname, &gfs_stat);
     break;
   }
+#else
+  result = stat_object(StatInfo->pathname, &gfs_stat);
+#endif
 
   if (result != GLOBUS_SUCCESS || StatInfo->file_only ||
       !S_ISDIR(gfs_stat.mode)) {
