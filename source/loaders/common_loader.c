@@ -78,7 +78,7 @@ static void loader_log_to_syslog(const char *Format, ...) {
 /*
  * Only allowed an int return, must log errors internally.
  */
-int loader_activate(const char *DsiName, const char *DsiInterface,
+int loader_activate(char *DsiName, const char *DsiInterface,
                     globus_module_descriptor_t *Module) {
   int rc;
   globus_gfs_storage_iface_t *dsi_interface = NULL;
@@ -121,7 +121,7 @@ int loader_activate(const char *DsiName, const char *DsiInterface,
 /*
  * Only allowed an int return, must log errors internally.
  */
-int loader_deactivate(const char *DsiName) {
+int loader_deactivate(char *DsiName) {
   globus_extension_registry_remove(GLOBUS_GFS_DSI_REGISTRY, DsiName);
 
   globus_module_deactivate(GLOBUS_COMMON_MODULE);
