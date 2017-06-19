@@ -1,7 +1,7 @@
 dnl
 dnl  University of Illinois/NCSA Open Source License
 dnl
-dnl  Copyright © 2012-2015, NCSA.  All rights reserved.
+dnl  Copyright Â© 2012-2015, NCSA.  All rights reserved.
 dnl
 dnl  Developed by:
 dnl

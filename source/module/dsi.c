@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright � 2012-2014 NCSA.  All rights reserved.
+ * Copyright © 2012-2014 NCSA.  All rights reserved.
  *
  * Developed by:
  *
