@@ -49,15 +49,17 @@
  */
 #include "markers.h"
 #include "pio.h"
+#include "logsupport.h"
 
 globus_result_t pio_launch_detached(void *(*ThreadEntry)(void *Arg),
                                     void *Arg) {
+  DEBUG("entered");
   int rc = 0;
   int initted = 0;
   pthread_t thread;
   pthread_attr_t attr;
   globus_result_t result = GLOBUS_SUCCESS;
-
+  
   GlobusGFSName(pio_launch_detached);
 
   /*
@@ -70,11 +72,13 @@ globus_result_t pio_launch_detached(void *(*ThreadEntry)(void *Arg),
   }
   if (initted)
     pthread_attr_destroy(&attr);
+  DEBUG("returns %d", result);
   return result;
 }
 
 globus_result_t pio_launch_attached(void *(*ThreadEntry)(void *Arg), void *Arg,
                                     pthread_t *ThreadID) {
+  DEBUG("entered");
   int rc = 0;
 
   GlobusGFSName(pio_launch_attached);
@@ -83,12 +87,16 @@ globus_result_t pio_launch_attached(void *(*ThreadEntry)(void *Arg), void *Arg,
    * Launch a detached thread.
    */
   rc = pthread_create(ThreadID, NULL, ThreadEntry, Arg);
-  if (rc)
-    return GlobusGFSErrorSystemError("Launching get object thread", rc);
+  if (rc){
+      ERR("returns %d", rc);
+      return GlobusGFSErrorSystemError("Launching get object thread", rc);
+  }
+  DEBUG("returns GLOBUS_SUCCESS");
   return GLOBUS_SUCCESS;
 }
 
 void *pio_coordinator_thread(void *Arg) {
+  DEBUG("entered");
   int rc = 0;
   int eot = 0;
   pio_t *pio = Arg;
@@ -107,9 +115,11 @@ void *pio_coordinator_thread(void *Arg) {
     rc = hpss_PIOExecute(pio->FD, offset, length, pio->CoordinatorSG, &gap_info,
                          &bytes_moved);
 
-    if (rc != 0 && rc != 0xDEADBEEF)
+    if (rc != 0 && rc != 0xDEADBEEF){
       pio->CoordinatorResult =
           GlobusGFSErrorSystemError("hpss_PIOExecute", -rc);
+          ERR("hpss_PIOExecute failed: rc(%d)", rc)
+    }
 
     /*
      * It appears that gap_info.offset is relative to offset. So you
@@ -132,12 +142,13 @@ void *pio_coordinator_thread(void *Arg) {
   if (rc != 0 && rc != PIO_END_TRANSFER &&
       pio->CoordinatorResult == GLOBUS_SUCCESS)
     pio->CoordinatorResult = GlobusGFSErrorSystemError("hpss_PIOEnd", -rc);
-
+  DEBUG("returns NULL");
   return NULL;
 }
 
 int pio_register_callback(void *UserArg, uint64_t Offset, uint32_t *Length,
                           void **Buffer) {
+  DEBUG("entered");
   pio_t *pio = UserArg;
   /*
    * On STOR, this buffer comes up NULL the first time. On RETR,
@@ -149,6 +160,7 @@ int pio_register_callback(void *UserArg, uint64_t Offset, uint32_t *Length,
 }
 
 void *pio_thread(void *Arg) {
+  DEBUG("entered");
   int rc = 0;
   pio_t *pio = Arg;
   globus_result_t result = GLOBUS_SUCCESS;
@@ -161,6 +173,7 @@ void *pio_thread(void *Arg) {
 
   buffer = malloc(pio->BlockSize);
   if (!buffer) {
+    ERR("malloc: OOM")
     result = GlobusGFSErrorMemory("pio buffer");
     goto cleanup;
   }
@@ -172,8 +185,11 @@ void *pio_thread(void *Arg) {
   pio->Buffer = buffer;
 
   result = pio_launch_attached(pio_coordinator_thread, pio, &thread_id);
-  if (result)
+  if (result){
+    ERR("pio_launch_attached failed: result(%d)", result);
     goto cleanup;
+  }
+    
   coord_launched = 1;
 
   rc = hpss_PIORegister(0, NULL, /* DataNetSockAddr */
@@ -200,7 +216,7 @@ cleanup:
 
   pio->XferCmpltCB(result, pio->UserArg);
   free(pio);
-
+  DEBUG("returns NULL");
   return NULL;
 }
 
@@ -209,6 +225,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
           uint32_t BlockSize, globus_off_t Offset, globus_off_t Length,
           pio_data_callout DataCO, pio_range_complete_callback RngCmpltCB,
           pio_transfer_complete_callback XferCmpltCB, void *UserArg) {
+  DEBUG("entered");
   globus_result_t result = GLOBUS_SUCCESS;
   pio_t *pio = NULL;
   hpss_pio_params_t pio_params;
@@ -223,6 +240,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
     RngCmpltCB(&Offset, &Length, &eot, UserArg);
     if (eot) {
       XferCmpltCB(GLOBUS_SUCCESS, UserArg);
+      DEBUG("returns GLOBUS_SUCCESS")
       return GLOBUS_SUCCESS;
     }
   }
@@ -232,6 +250,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
    */
   pio = malloc(sizeof(pio_t));
   if (!pio) {
+    ERR("malloc: OOM")
     result = GlobusGFSErrorMemory("pio_t");
     goto cleanup;
   }
@@ -258,30 +277,36 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
 
   int retval = hpss_PIOStart(&pio_params, &pio->CoordinatorSG);
   if (retval != 0) {
+    ERR("hpss_PIOStart failed: code(%d)", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOStart", -retval);
     goto cleanup;
   }
 
   retval = hpss_PIOExportGrp(pio->CoordinatorSG, &group_buffer, &buffer_length);
   if (retval != 0) {
+    ERR("hpss_PIOExportGrp failed: code(%d)", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOExportGrp", -retval);
     goto cleanup;
   }
 
   retval = hpss_PIOImportGrp(group_buffer, buffer_length, &pio->ParticipantSG);
   if (retval != 0) {
+    ERR("hpss_PIOImportGrp failed: code(%d)", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOImportGrp", -retval);
     goto cleanup;
   }
 
   result = pio_launch_detached(pio_thread, pio);
 
-  if (!result)
+  if (!result) {
+    ERR("returns %d", result);
     return result;
+  }
 
 cleanup:
   /* Can not clean up the stripe groups without crashing. */
   if (pio)
     free(pio);
+  DEBUG("returns %d", result);
   return result;
 }

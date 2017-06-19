@@ -60,6 +60,7 @@
 #include "authenticate.h"
 #include "commands.h"
 #include "config.h"
+#include "logsupport.h"
 #include "markers.h"
 #include "retr.h"
 #include "stat.h"
@@ -73,30 +74,38 @@ void dsi_init(globus_gfs_operation_t Operation,
   sec_cred_t user_cred;
 
   GlobusGFSName(dsi_init);
+  INFO();
 
   /*
    * Read in the config.
    */
   result = config_init(&config);
-  if (result)
+  if (result) {
+    ERR("config_init failed");
     goto cleanup;
+  }
 
   /* Now authenticate. */
   result = authenticate(config->LoginName, config->AuthenticationMech,
                         config->Authenticator, SessionInfo->username);
-  if (result != GLOBUS_SUCCESS)
+  if (result != GLOBUS_SUCCESS) {
+    ERR("authenticate failed");
     goto cleanup;
+  }
 
   /*
    * Pulling the HPSS directory from the user's credential will support
    * sites that use HPSS LDAP.
    */
   result = hpss_GetThreadUcred(&user_cred);
-  if (result)
+  if (result) {
+    ERR("hpss_GetThreadUcred failed");
     goto cleanup;
+  }
 
   home = strdup(user_cred.Directory);
   if (!home) {
+    ERR("strdup home directory failed");
     result = GlobusGFSErrorMemory("home directory");
     goto cleanup;
   }
@@ -104,6 +113,7 @@ void dsi_init(globus_gfs_operation_t Operation,
   result = commands_init(Operation);
 
 cleanup:
+  INFO("cleanup");
 
   /*
    * Inform the server that we are done. If we do not pass in a username, the
@@ -133,49 +143,61 @@ void dsi_destroy(void *Arg) {
 int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   globus_off_t offset;
   globus_off_t length;
+  DEBUG("path %s type %s stripes %d depth %d",
+       TransferInfo->pathname, TransferInfo->list_type,
+       TransferInfo->stripe_count, TransferInfo->list_depth);
 
-  if (globus_range_list_size(TransferInfo->range_list) != 1)
+  if (globus_range_list_size(TransferInfo->range_list) != 1) {
+    ERR("range_list != 1");
     return 1;
+  }
 
   globus_range_list_at(TransferInfo->range_list, 0, &offset, &length);
+  DEBUG("return %d", (offset != 0 || length != -1));
   return (offset != 0 || length != -1);
 }
 
 void dsi_send(globus_gfs_operation_t Operation,
               globus_gfs_transfer_info_t *TransferInfo, void *UserArg) {
-  globus_result_t result = GLOBUS_SUCCESS;
 
+  DEBUG("path %s", TransferInfo->pathname);
   GlobusGFSName(dsi_send);
 
   retr(Operation, TransferInfo);
+  DEBUG("path %s: return", TransferInfo->pathname);
 }
 
 static void dsi_recv(globus_gfs_operation_t Operation,
                      globus_gfs_transfer_info_t *TransferInfo, void *UserArg) {
   globus_result_t result = GLOBUS_SUCCESS;
+  DEBUG("path %s", TransferInfo->pathname);
 
   GlobusGFSName(dsi_recv);
 
   if (dsi_restart_transfer(TransferInfo) && !markers_restart_supported()) {
     result = GlobusGFSErrorGeneric("Restarts are not supported");
     globus_gridftp_server_finished_transfer(Operation, result);
+    ERR("path %s: restart error, return", TransferInfo->pathname);
     return;
   }
-
+  DEBUG("path %s, call stor", TransferInfo->pathname);
   stor(Operation, TransferInfo, UserArg);
+   DEBUG("path %s: return", TransferInfo->pathname);
 }
 
 void dsi_command(globus_gfs_operation_t Operation,
                  globus_gfs_command_info_t *CommandInfo, void *UserArg) {
+  DEBUG("command %d", CommandInfo->command);
   commands_run(Operation, CommandInfo, UserArg,
                globus_gridftp_server_finished_command);
+  DEBUG("command %d return", CommandInfo->command);
 }
 
 void dsi_stat(globus_gfs_operation_t Operation,
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
+  DEBUG("path(%s), file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);
-
-  globus_result_t result = GLOBUS_SUCCESS;
+  globus_result_t result;
   globus_gfs_stat_t gfs_stat;
 
 #ifdef USE_SYMLINK_INFO
@@ -195,6 +217,8 @@ void dsi_stat(globus_gfs_operation_t Operation,
       !S_ISDIR(gfs_stat.mode)) {
     globus_gridftp_server_finished_stat(Operation, result, &gfs_stat, 1);
     stat_destroy(&gfs_stat);
+    ERR("stat_object failed: path(%s) result(%d) GLOBUS_SUCCESS(%d), StatInfo->file_only(%d) S_ISDIR(%d) , return", 
+      StatInfo->pathname, result, GLOBUS_SUCCESS, StatInfo->file_only, S_ISDIR(gfs_stat.mode) );
     return;
   }
 
@@ -211,6 +235,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   if ((retval = hpss_FileGetAttributes(StatInfo->pathname, &dir_attrs)) < 0) {
     result = GlobusGFSErrorSystemError("hpss_FileGetAttributes", -retval);
     globus_gridftp_server_finished_stat(Operation, result, NULL, 0);
+    ERR("path %s, MAX_ENTRIES(%d) ERROR, return", StatInfo->pathname, STAT_ENTRIES_PER_REPLY);
     return;
   }
 
@@ -233,6 +258,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   }
 
   globus_gridftp_server_finished_stat(Operation, result, NULL, 0);
+  DEBUG("path %s: return", StatInfo->pathname);
 }
 
 /* Can request ordered data in globus-gridftp-server 11.x, removing the need to
