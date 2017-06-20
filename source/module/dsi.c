@@ -66,7 +66,7 @@
 #include "stat.h"
 #include "stor.h"
 
-void dsi_init(globus_gfs_operation_t Operation,
+static void dsi_init(globus_gfs_operation_t Operation,
               globus_gfs_session_info_t *SessionInfo) {
   globus_result_t result = GLOBUS_SUCCESS;
   config_t *config = NULL;
@@ -135,12 +135,12 @@ cleanup:
     free(home);
 }
 
-void dsi_destroy(void *Arg) {
+static void dsi_destroy(void *Arg) {
   if (Arg)
     config_destroy(Arg);
 }
 
-int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
+static int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   globus_off_t offset;
   globus_off_t length;
   DEBUG("path %s type %s stripes %d depth %d",
@@ -157,7 +157,7 @@ int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   return (offset != 0 || length != -1);
 }
 
-void dsi_send(globus_gfs_operation_t Operation,
+static void dsi_send(globus_gfs_operation_t Operation,
               globus_gfs_transfer_info_t *TransferInfo, void *UserArg) {
 
   DEBUG("path %s", TransferInfo->pathname);
@@ -185,7 +185,7 @@ static void dsi_recv(globus_gfs_operation_t Operation,
    DEBUG("path %s: return", TransferInfo->pathname);
 }
 
-void dsi_command(globus_gfs_operation_t Operation,
+static void dsi_command(globus_gfs_operation_t Operation,
                  globus_gfs_command_info_t *CommandInfo, void *UserArg) {
   DEBUG("command %d", CommandInfo->command);
   commands_run(Operation, CommandInfo, UserArg,
@@ -193,26 +193,17 @@ void dsi_command(globus_gfs_operation_t Operation,
   DEBUG("command %d return", CommandInfo->command);
 }
 
-void dsi_stat(globus_gfs_operation_t Operation,
+//
+// Stat a file (StatInfo->file_only), or directory
+//
+static void dsi_stat(globus_gfs_operation_t Operation,
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
   DEBUG("path(%s), file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);
   globus_result_t result;
   globus_gfs_stat_t gfs_stat;
 
-#ifdef USE_SYMLINK_INFO
-  switch (StatInfo->use_symlink_info) {
-  case 0:
-    result = stat_object(StatInfo->pathname, &gfs_stat);
-    break;
-  default:
-    result = stat_link(StatInfo->pathname, &gfs_stat);
-    break;
-  }
-#else
-  result = stat_object(StatInfo->pathname, &gfs_stat);
-#endif
-
+  result = stat_object(StatInfo->pathname, &gfs_stat);   //: stat_link(StatInfo->pathname, &gfs_stat);
   if (result != GLOBUS_SUCCESS || StatInfo->file_only ||
       !S_ISDIR(gfs_stat.mode)) {
     globus_gridftp_server_finished_stat(Operation, result, &gfs_stat, 1);
