@@ -45,19 +45,19 @@
 //
 // User interfaces
 //
-#define EMERG(format, args...) SYSLOG(LOG_EMERG, __FILE__, __LINE__, "emergency: ", format, ##args)
-#define ALERT(format, args...) SYSLOG(LOG_ALERT, __FILE__, __LINE__, "alert: ", format, ##args)
-#define CRIT(format, args...) SYSLOG(LOG_CRIT, __FILE__, __LINE__, "critical: ", format, ##args)
-#define ERR(format, args...) SYSLOG(LOG_ERR, __FILE__, __LINE__, "error: ", format, ##args)
-#define WARNING(format, args...) SYSLOG(LOG_WARNING, __FILE__, __LINE__, "warning: ", format, ##args)
-#define NOTICE(format, args...) SYSLOG(LOG_NOTICE, __FILE__, __LINE__, "notice: ", format, ##args)
-#define INFO(format, args...) SYSLOG(LOG_INFO, __FILE__, __LINE__, "info: ", format, ##args)
-#define DEBUG(format, args...) SYSLOG(LOG_DEBUG, __FILE__, __LINE__, "debug: ", format, ##args)
+#define EMERG(format, args...) SYSLOG(LOG_EMERG, __FILE__, __LINE__, "", format, ##args)
+#define ALERT(format, args...) SYSLOG(LOG_ALERT, __FILE__, __LINE__, "", format, ##args)
+#define CRIT(format, args...) SYSLOG(LOG_CRIT, __FILE__, __LINE__, "", format, ##args)
+#define ERR(format, args...) SYSLOG(LOG_ERR, __FILE__, __LINE__, "", format, ##args)
+#define WARNING(format, args...) SYSLOG(LOG_WARNING, __FILE__, __LINE__, "", format, ##args)
+#define NOTICE(format, args...) SYSLOG(LOG_NOTICE, __FILE__, __LINE__, "", format, ##args)
+#define INFO(format, args...) SYSLOG(LOG_INFO, __FILE__, __LINE__, "", format, ##args)
+#define DEBUG(format, args...) SYSLOG(LOG_DEBUG, __FILE__, __LINE__, "", format, ##args)
 
 //
 // Assembles a vsprintf style args "format", args...
 //
-#define LOGVARGS(file, line, prefix, format, args...) "dsi[%d][%s:%d]%s: " prefix format, getpid(), file, line, __func__, ##args
+#define LOGVARGS(file, line, prefix, format, args...) "dsi[%s:%d]%s" prefix format, file, line, __func__, ##args
 //
 // Send the LOGVARGS to syslog at the passed level
 //

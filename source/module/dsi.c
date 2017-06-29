@@ -143,7 +143,7 @@ static void dsi_destroy(void *Arg) {
 static int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   globus_off_t offset;
   globus_off_t length;
-  DEBUG("path %s type %s stripes %d depth %d",
+  DEBUG(": path %s type %s stripes %d depth %d",
        TransferInfo->pathname, TransferInfo->list_type,
        TransferInfo->stripe_count, TransferInfo->list_depth);
 
@@ -153,24 +153,24 @@ static int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   }
 
   globus_range_list_at(TransferInfo->range_list, 0, &offset, &length);
-  DEBUG("return %d", (offset != 0 || length != -1));
+  DEBUG(": return %d", (offset != 0 || length != -1));
   return (offset != 0 || length != -1);
 }
 
 static void dsi_send(globus_gfs_operation_t Operation,
               globus_gfs_transfer_info_t *TransferInfo, void *UserArg) {
 
-  DEBUG("path %s", TransferInfo->pathname);
+  DEBUG(":npath %s", TransferInfo->pathname);
   GlobusGFSName(dsi_send);
 
   retr(Operation, TransferInfo);
-  DEBUG("path %s: return", TransferInfo->pathname);
+  DEBUG(": path %s: return", TransferInfo->pathname);
 }
 
 static void dsi_recv(globus_gfs_operation_t Operation,
                      globus_gfs_transfer_info_t *TransferInfo, void *UserArg) {
   globus_result_t result = GLOBUS_SUCCESS;
-  DEBUG("path %s", TransferInfo->pathname);
+  DEBUG(": path %s", TransferInfo->pathname);
 
   GlobusGFSName(dsi_recv);
 
@@ -180,17 +180,16 @@ static void dsi_recv(globus_gfs_operation_t Operation,
     ERR("path %s: restart error, return", TransferInfo->pathname);
     return;
   }
-  DEBUG("path %s, call stor", TransferInfo->pathname);
   stor(Operation, TransferInfo, UserArg);
-   DEBUG("path %s: return", TransferInfo->pathname);
+  DEBUG("(%s): returns", TransferInfo->pathname);
 }
 
 static void dsi_command(globus_gfs_operation_t Operation,
                  globus_gfs_command_info_t *CommandInfo, void *UserArg) {
-  DEBUG("command %d", CommandInfo->command);
+  DEBUG(": command %d", CommandInfo->command);
   commands_run(Operation, CommandInfo, UserArg,
                globus_gridftp_server_finished_command);
-  DEBUG("command %d return", CommandInfo->command);
+  DEBUG(": command %d return", CommandInfo->command);
 }
 
 //
@@ -206,7 +205,7 @@ static void dsi_command(globus_gfs_operation_t Operation,
 //
 static void dsi_stat(globus_gfs_operation_t Operation,
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
-  DEBUG("path(%s), file-only(%d)", StatInfo->pathname, StatInfo->file_only);
+  DEBUG("(%s): file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);
   globus_gfs_stat_t gstat = {0};         // gfs stat buf to send back
   hpss_stat_t hstat = {0};  // hpss stat buf for lstat
@@ -218,26 +217,13 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   
   // lstat, set isLink, isDir
   if ((ret = stat_hpss_lstat(p, &hstat))) {
-    ERR("hpss_Lstat(%s) failed: code %d, return", p, ret);
+    ERR(": hpss_Lstat(%s) failed: code %d, return", p, ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
   isLink = S_ISLNK(hstat.st_mode);
   isDir = S_ISDIR(hstat.st_mode);
-  DEBUG("lstat(%s): isDir(%d), isLink(%d)", p, isDir, isLink);
-  
-  #ifdef NO
-  if (isLink && !fileOnly) {  // 2nd stat through link
-    if ((ret = stat_hpss_target(p, &hstat, t, HPSS_MAX_PATH_NAME)) != 0) {
-      ERR("hpss_stat_link(%s>%s) failed: code %d, return", p, t, ret);
-      globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
-      return;
-    }
-    isLinkTarget = S_ISLNK(hstat.st_mode);
-    isDirTarget = S_ISDIR(hstat.st_mode);
-    DEBUG("isLink: (%s->%s): isLinkTarget(%d), isDirTarget(%d)", p, t, isLinkTarget, isDirTarget);
-  }
-  #endif
+  DEBUG(": lstat(%s): isDir(%d), isLink(%d)", p, isDir, isLink);
 
   if (fileOnly && !isDir) {  // copy out the data and return
     if ((ret = stat_translate_stat(p, &hstat, &gstat))< 0) {
@@ -246,14 +232,14 @@ static void dsi_stat(globus_gfs_operation_t Operation,
       globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
       return;
       }
-    DEBUG("stat(%s) returns: mode(%x), nlink(%d), uid(%d), gid(%d), ino(%d), name(%s), symlink(%s):modebit(%d)", 
+    DEBUG(": stat(%s) returns: mode(%x), nlink(%d), uid(%d), gid(%d), ino(%d), name(%s), symlink(%s):modebit(%d)", 
       p, gstat.mode, gstat.nlink, gstat.uid, gstat.gid, gstat.ino, gstat.name, gstat.symlink_target, gstat.mode & S_IFLNK);
     globus_gridftp_server_finished_stat(Operation, ret, &gstat, 1);
     return;
     }
   
   // else: not file-only process directory
-  DEBUG("%s: stat dirents", p);
+  DEBUG("(%s): stat dirents", p);
   hpss_fileattr_t dir_attrs = {0};
   int ndents = stat_hpss_dirent_count(p, &dir_attrs);
   globus_gfs_stat_t gdents[ndents];
@@ -262,7 +248,7 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   memset(&gdents[0], 0, sizeof(gdents));
 
   if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, hdents, ndents)) != ndents){
-    ERR("stat_hpss_getDents failed");
+    ERR(": stat_hpss_getDents failed");
     stat_destroy(&gstat);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
@@ -274,14 +260,14 @@ static void dsi_stat(globus_gfs_operation_t Operation,
 
   DEBUG("dirstat: done, returning %d entries", ndents);
   for (int i=0; i <ndents;i++){
-    DEBUG("name(%s): link(%s), mode(%d), nlink(%d),  uid(%d), gid(%d), size(%ld)", 
-    gdents[i].name, gdents[i].symlink_target, gdents[i].mode, gdents[i].nlink,  
-    gdents[i].uid, gdents[i].gid, gdents[i].size);
+    DEBUG(": name(%s): link(%s), mode(%d), nlink(%d),  uid(%d), gid(%d), size(%ld)", 
+      gdents[i].name, gdents[i].symlink_target, gdents[i].mode, gdents[i].nlink,  
+      gdents[i].uid, gdents[i].gid, gdents[i].size);
   }
 
   globus_gridftp_server_finished_stat(Operation, 0, &gdents[0], ndents);
   stat_destroy_array(&gdents[0], ndents);
-  DEBUG("path %s: return", StatInfo->pathname);
+  DEBUG("(%s): return", StatInfo->pathname);
 }
 
 /* Can request ordered data in globus-gridftp-server 11.x, removing the need to

@@ -73,7 +73,6 @@ int stat_hpss_target(char*p, hpss_stat_t* buf, char *tgt, int tgtSz){
     ERR("hpss_Readlink(%s) failed: %d", p, ret);
     return ret;
   }
-  DEBUG("Readlink(%s): OK", p);
   return(stat_hpss_lstat(tgt, buf));
 }
 
@@ -83,7 +82,7 @@ int stat_hpss_dirent_count(char *p, hpss_fileattr_t *dir_attrs) {
     return -1;
   }
   int numdents = dir_attrs->Attrs.EntryCount ;
-  DEBUG("%d dir_attrs", numdents);
+  DEBUG(": %d dir_attrs", numdents);
   return numdents;
 }
 
@@ -132,7 +131,7 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
 globus_result_t stat_translate_lstat(char *p, hpss_stat_t *HpssStat,
                                     globus_gfs_stat_t *GFSStat)
 {
-  DEBUG("path(%s), hpss_stat(mode(%d), nlink(%d), uid(%d), gid(%d), size(%ld)", 
+  DEBUG("(%s): hpss_stat(mode(%d), nlink(%d), uid(%d), gid(%d), size(%ld)", 
     p, HpssStat->st_mode, HpssStat->st_nlink, HpssStat->st_uid, HpssStat->st_gid, HpssStat->st_size);
   GlobusGFSName(stat_translate_stat);
 
@@ -157,31 +156,30 @@ globus_result_t stat_translate_lstat(char *p, hpss_stat_t *HpssStat,
     return GlobusGFSErrorMemory("GFSStat->name");
   }
 
-  DEBUG("path(%s): success", p);
+  DEBUG("(%s): success", p);
   return GLOBUS_SUCCESS;
 }
 
 // Stat target, follow links
 globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *GFSStat) {
-  DEBUG("path %s",  Pathname);
+  DEBUG("(%s)",  Pathname);
   GlobusGFSName(stat_object);
 
   hpss_stat_t hpss_stat_buf;
   int retval = hpss_Stat(Pathname, &hpss_stat_buf);
   if (retval) {
-    ERR("hpss_Stat failed: path(%s), return",  Pathname);
+    ERR(": hpss_Stat(%s) failed, return",  Pathname);
     return GlobusGFSErrorSystemError("hpss_Lstat", -retval);
   }
-  DEBUG("hpss_stat:  %s: return %d",  Pathname, retval);
   retval = stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat);
-  DEBUG("path %s: return %d",  Pathname, retval);
+  DEBUG("(%s): return %d",  Pathname, retval);
   return retval;
 }
 
 // stat
 globus_result_t stat_link(char *Pathname, globus_gfs_stat_t *GFSStat) {
   GlobusGFSName(stat_link);
-  DEBUG("path %s",  Pathname);
+  DEBUG("(%s)",  Pathname);
 
   hpss_stat_t hpss_stat_buf;
   int retval = hpss_Lstat(Pathname, &hpss_stat_buf);
@@ -207,42 +205,42 @@ globus_result_t stat_link(char *Pathname, globus_gfs_stat_t *GFSStat) {
     // fill in target info
     stat_target(symlink_target, GFSStat);
   }
-  DEBUG("path %s: return %d",  Pathname, retval);
+  DEBUG("(%s): return %d",  Pathname, retval);
   return stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat);
 }
 
 globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
                                          ns_DirEntry_t *DirEntry,
                                          globus_gfs_stat_t *GFSStat) {
-  INFO("name(%s)",  DirEntry->Name);
+  INFO("(%s)",  DirEntry->Name);
   GlobusGFSName(stat_translate_dir_entry);
 
   /* If it is a symbolic link... */
   if (DirEntry->Attrs.Type == NS_OBJECT_TYPE_SYM_LINK) {
-    DEBUG("isALink(%s): get target",  DirEntry->Name);
+    DEBUG(": isALink(%s): get target",  DirEntry->Name);
     char symlink_target[HPSS_MAX_PATH_NAME];
     int ret;
     hpss_stat_t tattr = {0};
     /* Read the target. */
     if((ret = hpss_ReadlinkHandle(ParentObjHandle, DirEntry->Name, 
         symlink_target, HPSS_MAX_PATH_NAME, NULL)) < 0) {
-      ERR("%s: ERROR: hpssReaLinkHandle, return",  DirEntry->Name);
+      ERR("(%s): hpssReaLinkHandle failed, return",  DirEntry->Name);
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_ReadlinkHandle", -ret);
     }
-    DEBUG("%s: target: %s", DirEntry->Name, symlink_target);
+    DEBUG("(%s): target: %s", DirEntry->Name, symlink_target);
     if((ret = stat_hpss_lstat(symlink_target, &tattr)) < 0) {
       ERR("lstat(%s) failed, return", symlink_target);
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_ReadlinkHandle", -ret);
     }
-    DEBUG("%s: target: %s: lstat succeeds", DirEntry->Name, symlink_target);
+    DEBUG("(%s): target: %s: lstat succeeds", DirEntry->Name, symlink_target);
     if ((ret = stat_translate_lstat(DirEntry->Name, &tattr, GFSStat)) < 0) {
       ERR("stat(%s) failed, return",  DirEntry->Name);
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_ReadlinkHandle", -ret);
     }
-    DEBUG("%s: target: %s: copy target", DirEntry->Name, symlink_target);
+    DEBUG("(%s): target: %s: copy target", DirEntry->Name, symlink_target);
     /* Copy out the symlink target. */
     GFSStat->symlink_target = globus_libc_strdup(symlink_target);
     if (GFSStat->symlink_target == NULL) {
@@ -250,40 +248,21 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
       stat_destroy(GFSStat);
       return GlobusGFSErrorMemory("SymlinkTarget");
     }
-     DEBUG("%s: target: %s: done", DirEntry->Name, symlink_target);
+     DEBUG("(%s): target: %s: done", DirEntry->Name, symlink_target);
   // return at end
   } else {
-    DEBUG("%s: use dirent data", DirEntry->Name);
-
+    DEBUG("(%s): use dirent data", DirEntry->Name);
     API_ConvertModeToPosixMode(&DirEntry->Attrs, (mode_t*)&GFSStat->mode);
-#ifdef NO
-    GFSStat->mode = 0;
-    if (DirEntry->Attrs.UserPerms & NS_PERMS_RD) GFSStat->mode |= S_IRUSR;
-    if (DirEntry->Attrs.UserPerms & NS_PERMS_WR) GFSStat->mode |= S_IWUSR;
-    if (DirEntry->Attrs.UserPerms & NS_PERMS_XS) GFSStat->mode |= S_IXUSR;
-    if (DirEntry->Attrs.GroupPerms & NS_PERMS_RD) GFSStat->mode |= S_IRGRP;
-    if (DirEntry->Attrs.GroupPerms & NS_PERMS_WR) GFSStat->mode |= S_IWGRP;
-    if (DirEntry->Attrs.GroupPerms & NS_PERMS_XS) GFSStat->mode |= S_IXGRP;
-    if (DirEntry->Attrs.OtherPerms & NS_PERMS_RD) GFSStat->mode |= S_IROTH;
-    if (DirEntry->Attrs.OtherPerms & NS_PERMS_WR) GFSStat->mode |= S_IWOTH;
-    if (DirEntry->Attrs.OtherPerms & NS_PERMS_XS) GFSStat->mode |= S_IXOTH;
-    if (DirEntry->Attrs.ModePerms & NS_PERMS_RD) GFSStat->mode |= S_ISUID;
-    if (DirEntry->Attrs.ModePerms & NS_PERMS_WR) GFSStat->mode |= S_ISGID;
-    if (DirEntry->Attrs.ModePerms & NS_PERMS_XS) GFSStat->mode |= S_ISVTX;
-#endif
-
     switch (DirEntry->Attrs.Type) {
     case NS_OBJECT_TYPE_FILE:
     case NS_OBJECT_TYPE_HARD_LINK:
       GFSStat->mode |= S_IFREG;
       break;
-
     case NS_OBJECT_TYPE_DIRECTORY:
     case NS_OBJECT_TYPE_JUNCTION:
     case NS_OBJECT_TYPE_FILESET_ROOT:
       GFSStat->mode |= S_IFDIR;
       break;
-
     case NS_OBJECT_TYPE_SYM_LINK:
       GFSStat->mode |= S_IFLNK;
       break;
@@ -293,7 +272,6 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
     GFSStat->uid = DirEntry->Attrs.UID;
     GFSStat->gid = DirEntry->Attrs.GID;
     GFSStat->dev = 0;
-
     GFSStat->atime = DirEntry->Attrs.TimeLastRead;
     GFSStat->mtime = DirEntry->Attrs.TimeLastWritten;
     GFSStat->ctime = DirEntry->Attrs.TimeCreated;
@@ -302,11 +280,10 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
   }
 
   if (!(GFSStat->name = globus_libc_strdup(DirEntry->Name))) {
-    ERR("stat_translate_dir_entry: name %s: ERROR: memory error",  DirEntry->Name);
+    ERR("(%s): strdup failed",  DirEntry->Name);
     return GlobusGFSErrorMemory("GFSStat->name");
   }
-  
-  DEBUG("success, name(%s): mode(%d), nlink(%d), link(%s), uid(%d), gid(%d), size(%ld), ... ", 
+  DEBUG("(%s): success: mode(%d), nlink(%d), link(%s), uid(%d), gid(%d), size(%ld), ... ", 
     GFSStat->name, GFSStat->mode, GFSStat->nlink, GFSStat->symlink_target, GFSStat->uid, GFSStat->gid, GFSStat->size);
   return GLOBUS_SUCCESS;
 }
@@ -326,7 +303,7 @@ stat_directory_entries(ns_ObjHandle_t    * ObjHandle,       // IN
   int retval;
   ns_DirEntry_t dir_entry_buffer[GFSStatCountIn];
 
-  DEBUG("%d in entries",  GFSStatCountIn);
+  DEBUG(": %d in entries",  GFSStatCountIn);
   GlobusGFSName(stat_directory_entries);
   
   retval = hpss_ReadAttrsHandle(ObjHandle,
@@ -347,11 +324,11 @@ stat_directory_entries(ns_ObjHandle_t    * ObjHandle,       // IN
 #ifdef NO
   for (i = 0; i < *GFSStatCountOut; i++) {
     if (dir_entry_buffer[i].Attrs.Type == NS_OBJECT_TYPE_SYM_LINK) {
-      DEBUG("isaLink(%s), restat target",  dir_entry_buffer[i].Name);
+      DEBUG(": isaLink(%s), restat target",  dir_entry_buffer[i].Name);
       memset(&GFSStatArray[i], 0, sizeof(GFSStatArray[i]));
       int r = stat_target(dir_entry_buffer[i].Name,&GFSStatArray[i]);
       if (r) {
-        ERR("stat_object(%s) failed: %d", dir_entry_buffer[i].Name, r);
+        ERR(": stat_object(%s) failed: %d", dir_entry_buffer[i].Name, r);
         stat_destroy_array(GFSStatArray, i);
       return r;
       }
@@ -361,12 +338,12 @@ stat_directory_entries(ns_ObjHandle_t    * ObjHandle,       // IN
     result = stat_translate_dir_entry(ObjHandle, &dir_entry_buffer[i],
                                       &GFSStatArray[i]);
     if (result) {
-      ERR("stat_translate_dir_entry failed, count(%d), return", i);
+      ERR(": stat_translate_dir_entry failed, count(%d), return", i);
       stat_destroy_array(GFSStatArray, i);
       return result;
     }
   }
-  DEBUG("success, return");
+  DEBUG(": return GLOBUS_SUCCESS");
   return GLOBUS_SUCCESS;
 }
 #endif

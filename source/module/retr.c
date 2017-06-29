@@ -58,7 +58,7 @@ globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
   hpss_cos_hints_t hints_out;
   hpss_cos_priorities_t priorities;
 
-  DEBUG("path %s", Pathname);
+  DEBUG("(%s)", Pathname);
 
   GlobusGFSName(retr_open_for_reading);
 
@@ -84,7 +84,7 @@ globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
   /* Copy out the file stripe width. */
   *FileStripeWidth = hints_out.StripeWidth;
 
-  DEBUG("path %s: success, return", Pathname);
+  DEBUG("(%s): success, return", Pathname);
   return GLOBUS_SUCCESS;
 }
 
@@ -111,7 +111,7 @@ void retr_gridftp_callout(globus_gfs_operation_t Operation,
     pthread_cond_signal(&retr_info->Cond);
   }
   pthread_mutex_unlock(&retr_info->Mutex);
-  DEBUG("operation %p, return", Operation);
+  DEBUG(": operation %p, return", Operation);
 }
 
 /*
@@ -141,7 +141,7 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
 
     /* Check for error first. */
     if (RetrInfo->Result) {
-        DEBUG("eturn %d", RetrInfo->Result);
+        DEBUG(": return %d", RetrInfo->Result);
       return RetrInfo->Result;
     }
 
@@ -159,7 +159,7 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
   if (!globus_list_empty(RetrInfo->FreeBufferList)) {
     *FreeBuffer =
         globus_list_remove(&RetrInfo->FreeBufferList, RetrInfo->FreeBufferList);
-    DEBUG("return");
+    DEBUG(": return");
     return GLOBUS_SUCCESS;
   }
 
@@ -172,7 +172,7 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
   (*FreeBuffer)->RetrInfo = RetrInfo;
   (*FreeBuffer)->Valid = VALID_TAG;
   globus_list_insert(&RetrInfo->AllBufferList, *FreeBuffer);
-  DEBUG("return");
+  DEBUG(": return");
   return GLOBUS_SUCCESS;
 }
 
@@ -242,7 +242,7 @@ void retr_wait_for_gridftp(retr_info_t *RetrInfo) {
     }
   }
   pthread_mutex_unlock(&RetrInfo->Mutex);
-  DEBUG("return");
+  DEBUG(": return");
 }
 
 void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
@@ -279,7 +279,7 @@ void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
     retr_info->RangeLength = *Length;
     retr_info->CurrentOffset = *Offset;
   }
-  DEBUG("return");
+  DEBUG(": return");
 }
 
 static int release_buffer(void *Datum, void *Arg) {
@@ -318,7 +318,7 @@ void retr_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   globus_list_search_pred(retr_info->AllBufferList, release_buffer, NULL);
   globus_list_destroy_all(retr_info->AllBufferList, free);
   free(retr_info);
-  DEBUG("return");
+  DEBUG(": return");
 }
 
 void retr(globus_gfs_operation_t Operation,
