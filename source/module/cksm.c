@@ -269,7 +269,7 @@ void cksm(globus_gfs_operation_t Operation,
   cksm_info->Callback = Callback;
   cksm_info->Config = Config;
   cksm_info->FileFD = -1;
-  cksm_info->Pathname = strdup(CommandInfo->pathname);
+  cksm_info->Pathname = CommandInfo->pathname; //strdup(CommandInfo->pathname);
   cksm_info->RangeLength = CommandInfo->cksm_length;
   if (cksm_info->RangeLength == -1)
     cksm_info->RangeLength = hpss_stat_buf.st_size - CommandInfo->cksm_offset;
@@ -337,7 +337,7 @@ globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
   GlobusGFSName(checksum_set_file_sum);
 
   if (Config->UDAChecksumSupport) {
-    result = stat_object(Pathname, &gfs_stat);
+    result = stat_target(Pathname, &gfs_stat);
     if (result != GLOBUS_SUCCESS)
       return result;
 

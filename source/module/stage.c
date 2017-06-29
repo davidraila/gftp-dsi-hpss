@@ -194,12 +194,12 @@ void stage_check_residency(hpss_xfileattr_t *XFileAttr,
 
 globus_result_t stage_get_residency(char *Pathname,
                                     stage_file_residency *Residency) {
-  hpss_xfileattr_t xfileattr;
+  hpss_xfileattr_t xfileattr = {0};
   int retval = 0;
 
   GlobusGFSName(stage_get_residency);
 
-  memset(&xfileattr, 0, sizeof(hpss_xfileattr_t));
+  //memset(&xfileattr, 0, sizeof(hpss_xfileattr_t));
 
   /*
    * Stat the object. Without API_GET_XATTRS_NO_BLOCK, this call would hang
@@ -223,7 +223,7 @@ globus_result_t stage_get_residency(char *Pathname,
 globus_result_t stage_file(char *Pathname, int Timeout,
                            stage_file_residency *Residency) {
   globus_result_t result = GLOBUS_SUCCESS;
-  hpss_xfileattr_t xfileattr;
+  hpss_xfileattr_t xfileattr = {0};
   hpss_reqid_t reqid;
   hpssoid_t bitfile_id;
   time_t start_time = time(NULL);
@@ -231,7 +231,7 @@ globus_result_t stage_file(char *Pathname, int Timeout,
 
   GlobusGFSName(stage_file);
 
-  memset(&xfileattr, 0, sizeof(hpss_xfileattr_t));
+  //memset(&xfileattr, 0, sizeof(hpss_xfileattr_t));
 
   /*
    * Stat the object. Without API_GET_XATTRS_NO_BLOCK, this call would hang

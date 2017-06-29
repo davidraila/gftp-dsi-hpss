@@ -148,7 +148,7 @@ void *pio_coordinator_thread(void *Arg) {
 
 int pio_register_callback(void *UserArg, uint64_t Offset, uint32_t *Length,
                           void **Buffer) {
-  DEBUG("entered");
+  //DEBUG("entered");
   pio_t *pio = UserArg;
   /*
    * On STOR, this buffer comes up NULL the first time. On RETR,

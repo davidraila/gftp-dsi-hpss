@@ -196,59 +196,91 @@ static void dsi_command(globus_gfs_operation_t Operation,
 //
 // Stat a file (StatInfo->file_only), or directory
 //
+// 
+// Case:            StatInfo->file_only           !StatInfo->file_only
+//
+// directory        lstat of dir                  lstats of dirents
+// file             lstat of file                 lstat of file
+// link to file     lstat of target               lstat of target
+// link to dir      lstat of target               lstats of dirents  
+//
 static void dsi_stat(globus_gfs_operation_t Operation,
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
   DEBUG("path(%s), file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);
-  globus_result_t result;
-  globus_gfs_stat_t gfs_stat;
-
-  result = stat_object(StatInfo->pathname, &gfs_stat);   //: stat_link(StatInfo->pathname, &gfs_stat);
-  if (result != GLOBUS_SUCCESS || StatInfo->file_only ||
-      !S_ISDIR(gfs_stat.mode)) {
-    globus_gridftp_server_finished_stat(Operation, result, &gfs_stat, 1);
-    stat_destroy(&gfs_stat);
-    ERR("stat_object failed: path(%s) result(%d) GLOBUS_SUCCESS(%d), StatInfo->file_only(%d) S_ISDIR(%d) , return", 
-      StatInfo->pathname, result, GLOBUS_SUCCESS, StatInfo->file_only, S_ISDIR(gfs_stat.mode) );
+  globus_gfs_stat_t gstat = {0};         // gfs stat buf to send back
+  hpss_stat_t hstat = {0};  // hpss stat buf for lstat
+  int ret;
+  char *p = StatInfo->pathname;   // the path being stat'd
+  char t[HPSS_MAX_PATH_NAME];     // target (if SLINK)
+  int isLink, isDir, isLinkTarget, isDirTarget;
+  int fileOnly=StatInfo->file_only;
+  
+  // lstat, set isLink, isDir
+  if ((ret = stat_hpss_lstat(p, &hstat))) {
+    ERR("hpss_Lstat(%s) failed: code %d, return", p, ret);
+    globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
+  isLink = S_ISLNK(hstat.st_mode);
+  isDir = S_ISDIR(hstat.st_mode);
+  DEBUG("lstat(%s): isDir(%d), isLink(%d)", p, isDir, isLink);
+  
+  #ifdef NO
+  if (isLink && !fileOnly) {  // 2nd stat through link
+    if ((ret = stat_hpss_target(p, &hstat, t, HPSS_MAX_PATH_NAME)) != 0) {
+      ERR("hpss_stat_link(%s>%s) failed: code %d, return", p, t, ret);
+      globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
+      return;
+    }
+    isLinkTarget = S_ISLNK(hstat.st_mode);
+    isDirTarget = S_ISDIR(hstat.st_mode);
+    DEBUG("isLink: (%s->%s): isLinkTarget(%d), isDirTarget(%d)", p, t, isLinkTarget, isDirTarget);
+  }
+  #endif
 
-  stat_destroy(&gfs_stat);
+  if (fileOnly && !isDir) {  // copy out the data and return
+    if ((ret = stat_translate_stat(p, &hstat, &gstat))< 0) {
+      ERR("stat translation failed");
+      stat_destroy(&gstat);
+      globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
+      return;
+      }
+    DEBUG("stat(%s) returns: mode(%x), nlink(%d), uid(%d), gid(%d), ino(%d), name(%s), symlink(%s):modebit(%d)", 
+      p, gstat.mode, gstat.nlink, gstat.uid, gstat.gid, gstat.ino, gstat.name, gstat.symlink_target, gstat.mode & S_IFLNK);
+    globus_gridftp_server_finished_stat(Operation, ret, &gstat, 1);
+    return;
+    }
+  
+  // else: not file-only process directory
+  DEBUG("%s: stat dirents", p);
+  hpss_fileattr_t dir_attrs = {0};
+  int ndents = stat_hpss_dirent_count(p, &dir_attrs);
+  globus_gfs_stat_t gdents[ndents];
+  ns_DirEntry_t hdents[ndents];
+  memset(&hdents[0], 0, sizeof(hdents));
+  memset(&gdents[0], 0, sizeof(gdents));
 
-#define STAT_ENTRIES_PER_REPLY 200
-  /*
-   * Directory listing.
-   */
-
-  hpss_fileattr_t dir_attrs;
-
-  int retval;
-  if ((retval = hpss_FileGetAttributes(StatInfo->pathname, &dir_attrs)) < 0) {
-    result = GlobusGFSErrorSystemError("hpss_FileGetAttributes", -retval);
-    globus_gridftp_server_finished_stat(Operation, result, NULL, 0);
-    ERR("path %s, MAX_ENTRIES(%d) ERROR, return", StatInfo->pathname, STAT_ENTRIES_PER_REPLY);
+  if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, hdents, ndents)) != ndents){
+    ERR("stat_hpss_getDents failed");
+    stat_destroy(&gstat);
+    globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
-
-  uint64_t offset = 0;
-  uint32_t end = FALSE;
-  while (!end) {
-    globus_gfs_stat_t gfs_stat_array[STAT_ENTRIES_PER_REPLY];
-    uint32_t count_out;
-
-    result = stat_directory_entries(&dir_attrs.ObjectHandle, offset,
-                                    STAT_ENTRIES_PER_REPLY, &end, &offset,
-                                    gfs_stat_array, &count_out);
-    if (result)
-      break;
-
-    globus_gridftp_server_finished_stat_partial(Operation, GLOBUS_SUCCESS,
-                                                gfs_stat_array, count_out);
-
-    stat_destroy_array(gfs_stat_array, count_out);
+  // Set the output, resolving directories
+  for (int i = 0; i < ndents; i++) {
+    stat_translate_dir_entry(&dir_attrs.ObjectHandle, &hdents[i], &gdents[i]);
   }
 
-  globus_gridftp_server_finished_stat(Operation, result, NULL, 0);
+  DEBUG("dirstat: done, returning %d entries", ndents);
+  for (int i=0; i <ndents;i++){
+    DEBUG("name(%s): link(%s), mode(%d), nlink(%d),  uid(%d), gid(%d), size(%ld)", 
+    gdents[i].name, gdents[i].symlink_target, gdents[i].mode, gdents[i].nlink,  
+    gdents[i].uid, gdents[i].gid, gdents[i].size);
+  }
+
+  globus_gridftp_server_finished_stat(Operation, 0, &gdents[0], ndents);
+  stat_destroy_array(&gdents[0], ndents);
   DEBUG("path %s: return", StatInfo->pathname);
 }
 
