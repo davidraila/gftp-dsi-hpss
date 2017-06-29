@@ -52,7 +52,6 @@
 #include <ns_ObjHandle.h>
 
 int stat_hpss_lstat(char*p, hpss_stat_t* buf);
-int stat_hpss_target(char*p, hpss_stat_t* buf, char *tgt, int tgtSz);
 globus_result_t stat_translate_lstat(char *, hpss_stat_t *, globus_gfs_stat_t *);
 int stat_hpss_dirent_count(char *p, hpss_fileattr_t *dir_attrs);
 int stat_hpss_getdents(ns_ObjHandle_t *ObjHandle, ns_DirEntry_t *, int);
@@ -61,19 +60,11 @@ globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *);
 globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
   globus_gfs_stat_t *GFSStat);
 
-globus_result_t stat_link(char *Pathname, globus_gfs_stat_t *);
+
 
 globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
                                          ns_DirEntry_t *DirEntry,
                                          globus_gfs_stat_t *GFSStat);
-
-globus_result_t stat_directory_entries(ns_ObjHandle_t *ObjHandle,       // IN
-                                       uint64_t OffsetIn,               // IN
-                                       uint32_t GFSStatCountIn,         // IN
-                                       uint32_t *End,                   // OUT
-                                       uint64_t *OffsetOut,             // OUT
-                                       globus_gfs_stat_t *GFSStatArray, // OUT
-                                       uint32_t *GFSStatCountOut);      // OUT
 
 void stat_destroy(globus_gfs_stat_t *);
 

@@ -223,7 +223,7 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   }
   isLink = S_ISLNK(hstat.st_mode);
   isDir = S_ISDIR(hstat.st_mode);
-  DEBUG(": lstat(%s): isDir(%d), isLink(%d)", p, isDir, isLink);
+  DEBUG(": stat_hpss_lstat(%s): isDir(%d), isLink(%d)", p, isDir, isLink);
 
   if (fileOnly && !isDir) {  // copy out the data and return
     if ((ret = stat_translate_stat(p, &hstat, &gstat))< 0) {
@@ -254,9 +254,8 @@ static void dsi_stat(globus_gfs_operation_t Operation,
     return;
   }
   // Set the output, resolving directories
-  for (int i = 0; i < ndents; i++) {
+  for (int i = 0; i < ndents; i++)
     stat_translate_dir_entry(&dir_attrs.ObjectHandle, &hdents[i], &gdents[i]);
-  }
 
   DEBUG("dirstat: done, returning %d entries", ndents);
   for (int i=0; i <ndents;i++){
