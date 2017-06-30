@@ -81,7 +81,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
    */
   result = config_init(&config);
   if (result) {
-    ERR("config_init failed");
+    ERR(": config_init failed");
     goto cleanup;
   }
 
@@ -89,7 +89,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
   result = authenticate(config->LoginName, config->AuthenticationMech,
                         config->Authenticator, SessionInfo->username);
   if (result != GLOBUS_SUCCESS) {
-    ERR("authenticate failed");
+    ERR(": authentication failed");
     goto cleanup;
   }
 
@@ -99,13 +99,13 @@ static void dsi_init(globus_gfs_operation_t Operation,
    */
   result = hpss_GetThreadUcred(&user_cred);
   if (result) {
-    ERR("hpss_GetThreadUcred failed");
+    ERR(": hpss_GetThreadUcred failed: code %d", result);
     goto cleanup;
   }
 
   home = strdup(user_cred.Directory);
   if (!home) {
-    ERR("strdup home directory failed");
+    ERR(": strdup failed");
     result = GlobusGFSErrorMemory("home directory");
     goto cleanup;
   }
@@ -113,7 +113,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
   result = commands_init(Operation);
 
 cleanup:
-  INFO("cleanup");
+  INFO(": cleanup");
 
   /*
    * Inform the server that we are done. If we do not pass in a username, the
@@ -148,7 +148,7 @@ static int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
        TransferInfo->stripe_count, TransferInfo->list_depth);
 
   if (globus_range_list_size(TransferInfo->range_list) != 1) {
-    ERR("range_list != 1");
+    ERR(": range_list != 1");
     return 1;
   }
 
@@ -177,7 +177,7 @@ static void dsi_recv(globus_gfs_operation_t Operation,
   if (dsi_restart_transfer(TransferInfo) && !markers_restart_supported()) {
     result = GlobusGFSErrorGeneric("Restarts are not supported");
     globus_gridftp_server_finished_transfer(Operation, result);
-    ERR("path %s: restart error, return", TransferInfo->pathname);
+    ERR("(%s): dsi_restart_transfer failed", TransferInfo->pathname);
     return;
   }
   stor(Operation, TransferInfo, UserArg);
@@ -211,13 +211,13 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   hpss_stat_t hstat = {0};  // hpss stat buf for lstat
   int ret;
   char *p = StatInfo->pathname;   // the path being stat'd
-  char t[HPSS_MAX_PATH_NAME];     // target (if SLINK)
-  int isLink, isDir, isLinkTarget, isDirTarget;
+  int isLink, isDir;
   int fileOnly=StatInfo->file_only;
   
   // lstat, set isLink, isDir
   if ((ret = stat_hpss_lstat(p, &hstat))) {
     ERR(": hpss_Lstat(%s) failed: code %d, return", p, ret);
+    ret = GlobusGFSErrorSystemError(__func__, -ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
@@ -227,7 +227,8 @@ static void dsi_stat(globus_gfs_operation_t Operation,
 
   if (fileOnly && !isDir) {  // copy out the data and return
     if ((ret = stat_translate_stat(p, &hstat, &gstat))< 0) {
-      ERR("stat translation failed");
+      ERR(": stat translate_stat(%s) failed: code %d, return", p, ret);
+      ret = GlobusGFSErrorSystemError(__func__, -ret);
       stat_destroy(&gstat);
       globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
       return;
@@ -239,6 +240,7 @@ static void dsi_stat(globus_gfs_operation_t Operation,
     }
   
   // else: not file-only process directory
+
   DEBUG("(%s): stat dirents", p);
   hpss_fileattr_t dir_attrs = {0};
   int ndents = stat_hpss_dirent_count(p, &dir_attrs);
@@ -248,7 +250,8 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   memset(&gdents[0], 0, sizeof(gdents));
 
   if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, hdents, ndents)) != ndents){
-    ERR(": stat_hpss_getDents failed");
+    ERR(": stat_hpss_getDents failed: code %d", ret);
+    ret = GlobusGFSErrorSystemError(__func__, -ret);
     stat_destroy(&gstat);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;

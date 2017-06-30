@@ -77,7 +77,7 @@ globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
   *FileFD = hpss_Open(Pathname, O_RDONLY, S_IRUSR | S_IWUSR, &hints_in,
                       &priorities, &hints_out);
   if (*FileFD < 0) {
-    ERR("hpss_Open failed, path %s, return", Pathname);
+    ERR(": hpss_Open(%s) failed: code %d, return", Pathname, *FileFD);
     return GlobusGFSErrorSystemError("hpss_Open", -(*FileFD));
   }
 
@@ -94,10 +94,10 @@ void retr_gridftp_callout(globus_gfs_operation_t Operation,
   retr_buffer_t *retr_buffer = UserArg;
   retr_info_t *retr_info = retr_buffer->RetrInfo;
 
-  INFO("operation: %p", Operation);
+  INFO(": operation: %p", Operation);
 
   if (retr_buffer->Valid != VALID_TAG) {
-    ERR("operation %p: not VALID_TAG", Operation);
+    ERR(": invalid operation %p", Operation);
     return;
   }
 
@@ -198,7 +198,7 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
       if (!retr_info->Result)
         retr_info->Result = result;
       rc = PIO_END_TRANSFER; /* Signal to shutdown. */
-      ERR("retr_get_free_buffer != 0, cleanup");
+      ERR(": retr_get_free_buffer failed: code %d", result);
       goto cleanup;
     }
 
@@ -212,7 +212,7 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
       if (!retr_info->Result)
         retr_info->Result = result;
       rc = PIO_END_TRANSFER; /* Signal to shutdown. */
-      ERR("globus_gridftp_server_register_write != 0, cleanup");
+      ERR(": globus_gridftp_server_register_write failed: code %d", result);
       goto cleanup;
     }
 
@@ -309,7 +309,7 @@ void retr_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   rc = hpss_Close(retr_info->FileFD);
   if (rc && !result) {
     result = GlobusGFSErrorSystemError("hpss_Close", -rc);
-    ERR("hpss_Close failed: %d", result);
+    ERR(": hpss_Close failed: %d", result);
   }
 
   pthread_mutex_destroy(&retr_info->Mutex);
@@ -335,7 +335,7 @@ void retr(globus_gfs_operation_t Operation,
   rc = hpss_Stat(TransferInfo->pathname, &hpss_stat_buf);
   if (rc) {
     result = GlobusGFSErrorSystemError("hpss_Stat", -rc);
-    ERR("hpss_Stat failed, cleanup");
+    ERR(": hpss_Stat failed: code %d, cleanup", rc);
     goto cleanup;
   }
 
@@ -345,7 +345,7 @@ void retr(globus_gfs_operation_t Operation,
   retr_info = malloc(sizeof(retr_info_t));
   if (!retr_info) {
     result = GlobusGFSErrorMemory("retr_info_t");
-    ERR("malloc failed: retr_info");
+    ERR(": malloc failed");
     goto cleanup;
   }
   memset(retr_info, 0, sizeof(retr_info_t));
@@ -364,7 +364,7 @@ void retr(globus_gfs_operation_t Operation,
   result = retr_open_for_reading(TransferInfo->pathname, &retr_info->FileFD,
                                  &file_stripe_width);
   if (result) {
-    ERR("retr_open_for_reading(%s) failed, cleanup", TransferInfo->pathname);
+    ERR(": retr_open_for_reading(%s) failed: code %d, cleanup", TransferInfo->pathname, result);
     goto cleanup;
   }
 
@@ -394,5 +394,5 @@ cleanup:
       free(retr_info);
     }
   }
-  INFO("return");
+  INFO(": return");
 }

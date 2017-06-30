@@ -118,7 +118,7 @@ void *pio_coordinator_thread(void *Arg) {
     if (rc != 0 && rc != 0xDEADBEEF){
       pio->CoordinatorResult =
           GlobusGFSErrorSystemError("hpss_PIOExecute", -rc);
-          ERR("hpss_PIOExecute failed: rc(%d)", rc)
+          ERR(": hpss_PIOExecute failed: rc(%d)", rc)
     }
 
     /*
@@ -173,7 +173,7 @@ void *pio_thread(void *Arg) {
 
   buffer = malloc(pio->BlockSize);
   if (!buffer) {
-    ERR("malloc: OOM")
+    ERR(": malloc failed")
     result = GlobusGFSErrorMemory("pio buffer");
     goto cleanup;
   }
@@ -186,7 +186,7 @@ void *pio_thread(void *Arg) {
 
   result = pio_launch_attached(pio_coordinator_thread, pio, &thread_id);
   if (result){
-    ERR("pio_launch_attached failed: result(%d)", result);
+    ERR(": pio_launch_attached failed: code %d", result);
     goto cleanup;
   }
     
@@ -250,7 +250,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
    */
   pio = malloc(sizeof(pio_t));
   if (!pio) {
-    ERR("malloc: OOM")
+    ERR(": malloc failed")
     result = GlobusGFSErrorMemory("pio_t");
     goto cleanup;
   }
@@ -277,21 +277,21 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
 
   int retval = hpss_PIOStart(&pio_params, &pio->CoordinatorSG);
   if (retval != 0) {
-    ERR("hpss_PIOStart failed: code(%d)", retval);
+    ERR(": hpss_PIOStart failed: code %d", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOStart", -retval);
     goto cleanup;
   }
 
   retval = hpss_PIOExportGrp(pio->CoordinatorSG, &group_buffer, &buffer_length);
   if (retval != 0) {
-    ERR("hpss_PIOExportGrp failed: code(%d)", retval);
+    ERR(": hpss_PIOExportGrp failed: code %d", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOExportGrp", -retval);
     goto cleanup;
   }
 
   retval = hpss_PIOImportGrp(group_buffer, buffer_length, &pio->ParticipantSG);
   if (retval != 0) {
-    ERR("hpss_PIOImportGrp failed: code(%d)", retval);
+    ERR(": hpss_PIOImportGrp failed: code %d", retval);
     result = GlobusGFSErrorSystemError("hpss_PIOImportGrp", -retval);
     goto cleanup;
   }
@@ -299,7 +299,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
   result = pio_launch_detached(pio_thread, pio);
 
   if (!result) {
-    ERR("returns %d", result);
+    ERR(": returns %d", result);
     return result;
   }
 
