@@ -242,13 +242,13 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   // else: not file-only process directory
 
   DEBUG("(%s): stat dirents", p);
-  hpss_fileattr_t dir_attrs = {0};
+  hpss_fileattr_t dir_attrs = {{0}};
   int ndents = stat_hpss_dirent_count(p, &dir_attrs);
   globus_gfs_stat_t gdents[ndents];
   ns_DirEntry_t hdents[ndents];
   memset(&hdents[0], 0, sizeof(hdents));
   memset(&gdents[0], 0, sizeof(gdents));
-
+  
   if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, hdents, ndents)) != ndents){
     ERR(": stat_hpss_getDents failed: code %d", ret);
     ret = GlobusGFSErrorSystemError(__func__, -ret);
