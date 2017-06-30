@@ -64,7 +64,7 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
 
 globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
                                          ns_DirEntry_t *DirEntry,
-                                         globus_gfs_stat_t *GFSStat);
+                                         globus_gfs_stat_t *GFSStat, char* dir_path);
 
 void stat_destroy(globus_gfs_stat_t *);
 

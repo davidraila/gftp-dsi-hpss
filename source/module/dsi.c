@@ -256,18 +256,36 @@ static void dsi_stat(globus_gfs_operation_t Operation,
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
-  // Set the output, resolving directories
-  for (int i = 0; i < ndents; i++)
-    stat_translate_dir_entry(&dir_attrs.ObjectHandle, &hdents[i], &gdents[i]);
-
-  DEBUG("dirstat: done, returning %d entries", ndents);
-  for (int i=0; i <ndents;i++){
+  // get the dir's path
+  char dir_path[HPSS_MAX_PATH_NAME];
+  ns_ObjHandle_t fileset_root;
+  if ((ret = hpss_GetPathHandle(&dir_attrs.ObjectHandle, &fileset_root, dir_path)) < 0){
+    ERR(": stat_hpss_getDents failed: code %d", ret);
+    stat_destroy(&gstat);
+    ret = GlobusGFSErrorSystemError(__func__, -ret);
+    globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
+    return;
+  }
+  // Set the output, resolving directories, skip errors
+  int good_dents = 0;
+  for (int i = 0; i < ndents; i++){
+    if ((ret = stat_translate_dir_entry(&dir_attrs.ObjectHandle, &hdents[i], &gdents[good_dents], 
+      dir_path))){
+      DEBUG(": ignore dirent %d, %s", i, hdents[i].Name);
+      }
+    else {
+      good_dents++;
+    }
+  }
+      
+  DEBUG("dirstat: done, returning %d entries", good_dents);
+  for (int i=0; i <good_dents;i++){
     DEBUG(": name(%s): link(%s), mode(%d), nlink(%d),  uid(%d), gid(%d), size(%ld)", 
       gdents[i].name, gdents[i].symlink_target, gdents[i].mode, gdents[i].nlink,  
       gdents[i].uid, gdents[i].gid, gdents[i].size);
   }
 
-  globus_gridftp_server_finished_stat(Operation, 0, &gdents[0], ndents);
+  globus_gridftp_server_finished_stat(Operation, 0, &gdents[0], good_dents);
   stat_destroy_array(&gdents[0], ndents);
   DEBUG("(%s): return", StatInfo->pathname);
 }

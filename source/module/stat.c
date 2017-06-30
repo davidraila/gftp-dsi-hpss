@@ -91,7 +91,7 @@ int stat_hpss_getdents(ns_ObjHandle_t *ObjHandle, ns_DirEntry_t *hdents, int cnt
   uint64_t count_out; // not used, just match api
   if((ret = hpss_ReadAttrsHandle(ObjHandle, 0, NULL, sizeof(ns_DirEntry_t)*cnt,
                               TRUE, &end, &count_out, hdents)) < 0) {
-    return -1;
+    return ret;
   }
   return count_out;
 }
@@ -210,7 +210,7 @@ globus_result_t stat_link(char *Pathname, globus_gfs_stat_t *GFSStat) {
 
 globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
                                          ns_DirEntry_t *DirEntry,
-                                         globus_gfs_stat_t *GFSStat) {
+                                         globus_gfs_stat_t *GFSStat, char* dir_path) {
   INFO("(%s)",  DirEntry->Name);
   GlobusGFSName(stat_translate_dir_entry);
 
@@ -227,9 +227,10 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_ReadlinkHandle", -ret);
     }
-    DEBUG("(%s): target: %s", DirEntry->Name, symlink_target);
-    if((ret = stat_hpss_lstat(symlink_target, &tattr)) < 0) {
-      ERR("lstat(%s) failed, return", symlink_target);
+    char stat_target[HPSS_MAX_PATH_NAME];
+    snprintf(stat_target, HPSS_MAX_PATH_NAME, "%s/%s", dir_path, DirEntry->Name);
+    if((ret = stat_hpss_stat(stat_target, &tattr)) < 0) {
+      ERR(": stat_hpss_stat(%s) failed: code %d, return", stat_target, ret);
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_ReadlinkHandle", -ret);
     }
