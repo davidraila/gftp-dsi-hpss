@@ -183,7 +183,7 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
   retr_info_t *retr_info = CallbackArg;
   globus_result_t result = GLOBUS_SUCCESS;
 
-  DEBUG();;
+  DEBUG(": buf(%p) len(%u) off(%lx) CB(%p)", ReadyBuffer, *Length, Offset, CallbackArg );
 
   GlobusGFSName(retr_pio_callout);
 
