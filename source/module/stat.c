@@ -60,7 +60,7 @@
 int stat_hpss_lstat(char*p, hpss_stat_t* buf){
   int ret; 
   if((ret = hpss_Lstat(p, buf)) < 0) {
-    ERR(": stat_lstat(%s) failed: code %d", p, ret);
+    ERR("(%s) failed: code %d: %s", p, ret, strerror(errno));
     return ret;
   }
  return 0;
@@ -69,7 +69,7 @@ int stat_hpss_lstat(char*p, hpss_stat_t* buf){
 int stat_hpss_stat(char*p, hpss_stat_t* buf){
   int ret; 
   if((ret = hpss_Stat(p, buf)) < 0) {
-    ERR(": stat_Stat(%s) failed: code %d", p, ret);
+    ERR("(%s) failed: code %d: %s", p, ret, strerror(errno));
     return ret;
   }
  return 0;
@@ -107,7 +107,7 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
     DEBUG(": is a link");
     char symlink_target[HPSS_MAX_PATH_NAME];      // possibly relative link target
     //char symlink_full_target[HPSS_MAX_PATH_NAME]; // full-path link target
-    /* Read the target. */
+    /* Read the target. */  
     int retval;
     if ((retval = hpss_Readlink(Pathname, symlink_target, sizeof(symlink_target))) < 0) {
       ERR(": hpss_Readlink failed: code %d, path(%s), return", retval, Pathname);

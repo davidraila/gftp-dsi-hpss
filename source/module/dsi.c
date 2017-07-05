@@ -216,7 +216,7 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   
   // lstat, set isLink, isDir
   if ((ret = stat_hpss_lstat(p, &hstat))) {
-    ERR(": hpss_Lstat(%s) failed: code %d, return", p, ret);
+    ERR(": hpss_Lstat(%s) failed: code %d: %s return", p, ret, strerror(errno));
     ret = GlobusGFSErrorSystemError(__func__, -ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
