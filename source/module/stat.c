@@ -98,14 +98,15 @@ int stat_hpss_getdents(ns_ObjHandle_t *ObjHandle, ns_DirEntry_t *hdents, int cnt
 
 globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
                                     globus_gfs_stat_t *GFSStat) {
-  DEBUG(": stat_translate_stat: path (%s), hpss_stat(mode(%d), nlink(%d), uid(%d), gid(%d), size(%ld)", 
+  DEBUG("(%s): hpss_stat(mode(%d), nlink(%d), uid(%d), gid(%d), size(%ld)", 
     Pathname, HpssStat->st_mode, HpssStat->st_nlink, HpssStat->st_uid, HpssStat->st_gid, HpssStat->st_size);
   GlobusGFSName(stat_translate_stat);
 
   /* If it is a symbolic link... */
   if (S_ISLNK(HpssStat->st_mode)) {
     DEBUG(": is a link");
-    char symlink_target[HPSS_MAX_PATH_NAME];
+    char symlink_target[HPSS_MAX_PATH_NAME];      // possibly relative link target
+    //char symlink_full_target[HPSS_MAX_PATH_NAME]; // full-path link target
     /* Read the target. */
     int retval;
     if ((retval = hpss_Readlink(Pathname, symlink_target, sizeof(symlink_target))) < 0) {
@@ -113,15 +114,26 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_Readlink", -retval);
       }
-    if ((retval = stat_hpss_lstat(symlink_target, HpssStat)) < 0) {
-      ERR(": hpss_lstat(%s) failed: code %d", symlink_target, retval);
+    if ((retval = stat_hpss_stat(Pathname, HpssStat)) < 0) {
+      ERR(": hpss_lstat(%s) failed: code %d", Pathname, retval);
       stat_destroy(GFSStat);
-      return GlobusGFSErrorMemory("SymlinkTarget");
+      return GlobusGFSErrorSystemError("hpss_Lstat target", -retval);
     }
+#ifdef NO
+    // Check for relativepath
+    if (symlink_target[0] != '/'){
+      // Use full path from dirent
+      strcpy(symlink_full_target, Pathname);
+      char *last_path = strrchr(symlink_full_target, '/');
+      last_path = last_path ? last_path +1: symlink_full_target;
+      strcpy(last_path, symlink_target);
+    }
+#endif
+    //snprintf(full_target, HPSS_MAX_PATH_NAME, "%s/%s",  Pathname, symlink_target);
     if ((GFSStat->symlink_target = globus_libc_strdup(symlink_target)) == NULL) {
-      ERR(": globus_libc_strdup(%s) failed: code %d, return", symlink_target, retval);
-      stat_destroy(GFSStat);
-      return GlobusGFSErrorMemory("SymlinkTarget");
+    ERR(": globus_libc_strdup(%s) failed: code %d, return", symlink_target, retval);
+    stat_destroy(GFSStat);
+    return GlobusGFSErrorMemory("SymlinkTarget");
     }
   }
   return stat_translate_lstat(Pathname, HpssStat, GFSStat);
@@ -172,6 +184,7 @@ globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *GFSStat) {
   }
   if ((retval = stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat)))
     DEBUG(": stat_translate_stat(%s) failed: code %d, ",  Pathname, retval);
+    return GlobusGFSErrorSystemError("translate_stat", -retval);
   return retval;
 }
 
@@ -243,7 +256,7 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
     if ((GFSStat->symlink_target = globus_libc_strdup(symlink_target)) == NULL) {
       ERR(": globus_libc_strdup failed, return");
       stat_destroy(GFSStat);
-      return GlobusGFSErrorMemory("SymlinkTarget");
+      return GlobusGFSErrorMemory("strdup SymlinkTarget");
     }
      DEBUG("(%s): target: %s: done", DirEntry->Name, symlink_target);
   // return at end
