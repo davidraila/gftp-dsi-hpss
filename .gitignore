@@ -20,7 +20,9 @@ GRTAGS
 GTAGS
 .vscode/
 autom4te.cache/
+aclocal.m4
 Makefile
+Makefile.am
 configure
 libtool
 source/Makefile
