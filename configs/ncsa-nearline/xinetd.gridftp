@@ -1,0 +1,32 @@
+# This file is overwritten at boot by the
+# class specific version at /usr/local/class
+service gsiftp
+{
+	disable = no
+	flags       = IPv4
+	wait        = no
+	user        = root
+	group       = root
+	server      = /usr/sbin/globus-gridftp-server
+	server_args = -c /etc/gridftp.conf
+	socket_type = stream
+	per_source  = 100
+	instances   = 100
+	cps         = 5000 10
+	nice        = 10
+	umask       = 007
+	# Add to the library search path
+    	env += LD_LIBRARY_PATH=/usr/local/lib64
+	# Setting thses in gridftp.conf does not appear to work
+	env += GLOBUS_TCP_PORT_RANGE=50000,51000
+	env += GLOBUS_TCP_SOURCE_RANGE=50000,51000
+	# Currently, these require LD_PRELOAD'ing and this is the cleanest
+	# way to do that.
+	env += LD_PRELOAD=/usr/local/gridftp/lib64/libtransfer_logger.so
+	# Load this to get command log output. Why not use log level ALL?
+	# It seems to give the command output as well.
+	#env += LD_PRELOAD=/usr/local/gridftp/lib64/libcmd_logger.so
+	# Is this still required?
+	#env += LD_PRELOAD=/usr/local/lib/libgridftp_group_fix.so
+
+}
