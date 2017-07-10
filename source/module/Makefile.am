@@ -1,15 +1,19 @@
 ##########################################################################
 # University of Illinois/NCSA Open Source License
 #
-# Copyright © 2015 NCSA.  All rights reserved.
+# Copyright © 2015, 2017 NCSA.  All rights reserved.
 #
 # Developed by:
 #
-# Storage Enabling Technologies (SET)
+# Storage Enabling Technologies Group (SET)
 #
 # Nation Center for Supercomputing Applications (NCSA)
 #
 # http://www.ncsa.illinois.edu
+#
+# Authors:
+#					Jason Alt <jalt@ncsa.illinois.edu>
+#					David Raila <raila@illinois.edu>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the .Software.),
