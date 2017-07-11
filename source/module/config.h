@@ -45,6 +45,7 @@
  * Globus includes
  */
 #include <globus_gridftp_server.h>
+#include "../../config.h"
 
 #define DEFAULT_CONFIG_FILE "/var/hpss/etc/gridftp.conf"
 
