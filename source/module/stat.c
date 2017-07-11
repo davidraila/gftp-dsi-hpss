@@ -181,14 +181,16 @@ globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *GFSStat) {
   DEBUG("(%s)",  Pathname);
 
   hpss_stat_t hpss_stat_buf;
-  int retval = hpss_Stat(Pathname, &hpss_stat_buf);
-  if (retval) {
+  memset(&hpss_stat_buf,0,sizeof(hpss_stat_buf));
+  int retval;
+  if ((retval = stat_hpss_stat(Pathname, &hpss_stat_buf))) {
     ERR(": hpss_Stat(%s) failed, return",  Pathname);
     return GlobusGFSErrorSystemError("hpss_Lstat", -retval);
   }
-  if ((retval = stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat)))
+  if ((retval = stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat))){
     DEBUG(": stat_translate_stat(%s) failed: code %d, ",  Pathname, retval);
     return GlobusGFSErrorSystemError("translate_stat", -retval);
+  }
   DEBUG("(%s): return %d",  Pathname, retval);
   return retval;
 }
