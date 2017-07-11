@@ -65,6 +65,7 @@
 #include "retr.h"
 #include "stat.h"
 #include "stor.h"
+#include "config.h"
 
 static void dsi_init(globus_gfs_operation_t Operation,
               globus_gfs_session_info_t *SessionInfo) {
