@@ -186,7 +186,7 @@ static void dsi_recv(globus_gfs_operation_t Operation,
 
 static void dsi_command(globus_gfs_operation_t Operation,
                  globus_gfs_command_info_t *CommandInfo, void *UserArg) {
-  DEBUG(": command %d", CommandInfo->command);
+  DEBUG(": command %d, arg %p", CommandInfo->command, UserArg);
   commands_run(Operation, CommandInfo, UserArg,
                globus_gridftp_server_finished_command);
   DEBUG(": command %d return", CommandInfo->command);
