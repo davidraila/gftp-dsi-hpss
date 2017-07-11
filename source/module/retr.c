@@ -337,7 +337,7 @@ void retr(globus_gfs_operation_t Operation,
   DEBUG();
   GlobusGFSName(retr);
 
-  rc = hpss_Stat(TransferInfo->pathname, &hpss_stat_buf);
+  rc = stat_hpss_stat(TransferInfo->pathname, &hpss_stat_buf);
   if (rc) {
     result = GlobusGFSErrorSystemError("hpss_Stat", -rc);
     ERR(": hpss_Stat failed: code %d, cleanup", rc);
