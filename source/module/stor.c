@@ -53,8 +53,12 @@
 #include "markers.h"
 #include "pio.h"
 #include "stor.h"
+#include "logsupport.h"
+
+static const int DEBUGIO=0;
 
 globus_result_t stor_can_change_cos(char *Pathname, int *can_change_cos) {
+  DEBUG();
   int retval;
   hpss_fileattr_t fileattr;
   ns_FilesetAttrBits_t fileset_attr_bits;
@@ -64,15 +68,20 @@ globus_result_t stor_can_change_cos(char *Pathname, int *can_change_cos) {
 
   memset(&fileattr, 0, sizeof(hpss_fileattr_t));
   retval = hpss_FileGetAttributes(Pathname, &fileattr);
-  if (retval)
+  if (retval) {
+    DEBUG(": hpss_FileGetAttributes failed");
     return GlobusGFSErrorSystemError("hpss_FileGetAttributes", -retval);
+  }
 
+    
   fileset_attr_bits = orbit64m(0, NS_FS_ATTRINDEX_COS);
   memset(&fileset_attr, 0, sizeof(ns_FilesetAttrs_t));
   retval = hpss_FilesetGetAttributes(NULL, &fileattr.Attrs.FilesetId, NULL,
                                      NULL, fileset_attr_bits, &fileset_attr);
-  if (retval)
+  if (retval) {
+    DEBUG(": hpss_FilesetGetAttributes failed");
     return GlobusGFSErrorSystemError("hpss_FilesetGetAttributes", -retval);
+  }
 
   *can_change_cos = !fileset_attr.ClassOfService;
   return GLOBUS_SUCCESS;
@@ -81,6 +90,7 @@ globus_result_t stor_can_change_cos(char *Pathname, int *can_change_cos) {
 globus_result_t stor_open_for_writing(char *Pathname, globus_off_t AllocSize,
                                       globus_bool_t Truncate, int *FileFD,
                                       int *FileStripeWidth) {
+  DEBUG();
   int oflags = 0;
   int retval = 0;
   int can_change_cos = 0;
@@ -110,6 +120,7 @@ globus_result_t stor_open_for_writing(char *Pathname, globus_off_t AllocSize,
    *  2) determined by the size of the incoming file
    */
   if (Truncate == GLOBUS_TRUE) {
+    DEBUG(": truncating");
     if (AllocSize != 0) {
       /*
        * Use the ALLO size.
@@ -152,6 +163,7 @@ globus_result_t stor_open_for_writing(char *Pathname, globus_off_t AllocSize,
     retval = hpss_SetCOSByHints(*FileFD, 0, &hints_in, &priorities, &cos_md);
 
     if (retval) {
+      DEBUG(": hpss_SetCOSByHints failed");
       result = GlobusGFSErrorSystemError("hpss_SetCOSByHints", -(retval));
       goto cleanup;
     }
@@ -161,6 +173,7 @@ globus_result_t stor_open_for_writing(char *Pathname, globus_off_t AllocSize,
   *FileStripeWidth = hints_out.StripeWidth;
 
 cleanup:
+  DEBUG(": cleanup");
   if (result) {
     if (*FileFD != -1)
       hpss_Close(*FileFD);
@@ -174,6 +187,7 @@ void stor_gridftp_callout(globus_gfs_operation_t Operation,
                           globus_result_t Result, globus_byte_t *Buffer,
                           globus_size_t Length, globus_off_t Offset,
                           globus_bool_t Eof, void *UserArg) {
+  if (DEBUGIO) DEBUG();
   stor_buffer_t *stor_buffer = UserArg;
   stor_info_t *stor_info = stor_buffer->StorInfo;
 
@@ -226,6 +240,7 @@ int stor_find_buffer(void *Datum, void *Arg) {
 /* Called locked. */
 uint64_t stor_copy_out_buffers(stor_info_t *StorInfo, void *Buffer,
                                uint64_t Offset, uint64_t Length) {
+  if (DEBUGIO) DEBUG(": %ld, %ld", Offset, Length);
   globus_list_t *buf_entry = NULL;
   stor_buffer_t *stor_buffer = NULL;
   uint64_t offset_needed = 0;
@@ -265,12 +280,13 @@ uint64_t stor_copy_out_buffers(stor_info_t *StorInfo, void *Buffer,
       }
     }
   } while (copied_length != Length && buf_entry);
-
+  if (DEBUGIO) DEBUG(": wrote %ld", copied_length);
   return copied_length;
 }
 
 /* Called locked. */
 globus_result_t stor_launch_gridftp_reads(stor_info_t *StorInfo) {
+  if (DEBUGIO) DEBUG();
   stor_buffer_t *stor_buffer = NULL;
   globus_result_t result = GLOBUS_SUCCESS;
 
@@ -399,6 +415,7 @@ int stor_pio_callout(char *Buffer, uint32_t *Length, uint64_t Offset,
 }
 
 void stor_wait_for_gridftp(stor_info_t *StorInfo) {
+  DEBUG();
   pthread_mutex_lock(&StorInfo->Mutex);
   {
     while (1) {
@@ -413,6 +430,7 @@ void stor_wait_for_gridftp(stor_info_t *StorInfo) {
     }
   }
   pthread_mutex_unlock(&StorInfo->Mutex);
+  DEBUG(": returns");
 }
 
 void stor_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
@@ -444,6 +462,7 @@ static int release_buffer(void *Datum, void *Arg) {
 }
 
 void stor_transfer_complete_callback(globus_result_t Result, void *UserArg) {
+  DEBUG();
   globus_result_t result = Result;
   stor_info_t *stor_info = UserArg;
   int rc = 0;
@@ -459,6 +478,7 @@ void stor_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   if (!result)
     result = stor_info->Result;
 
+  DEBUG(": hpss_Close");
   rc = hpss_Close(stor_info->FileFD);
   if (rc && !result)
     result = GlobusGFSErrorSystemError("hpss_Close", -rc);
@@ -471,6 +491,7 @@ void stor_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   globus_list_search_pred(stor_info->AllBufferList, release_buffer, NULL);
   globus_list_destroy_all(stor_info->AllBufferList, free);
   free(stor_info);
+  DEBUG(": returns");
 }
 
 void stor(globus_gfs_operation_t Operation,
@@ -542,6 +563,7 @@ void stor(globus_gfs_operation_t Operation,
                      stor_transfer_complete_callback, stor_info);
 
 cleanup:
+  DEBUG(": cleanup");
   if (result) {
     globus_gridftp_server_finished_transfer(Operation, result);
     if (stor_info) {

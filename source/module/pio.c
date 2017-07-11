@@ -199,6 +199,8 @@ DEBUG(": alloc buf %d", pio->BlockSize);
     
   coord_launched = 1;
 
+  DEBUG(": hpss_PIORegister(0,0,%p,%d,%p, offset(%ld), len(%ld)) ", buffer, pio->BlockSize, 
+    pio->ParticipantSG, pio->InitialOffset, pio->InitialLength);
   rc = hpss_PIORegister(0, NULL, /* DataNetSockAddr */
                         buffer, pio->BlockSize, pio->ParticipantSG,
                         pio_register_callback, pio);
@@ -232,7 +234,7 @@ pio_start(hpss_pio_operation_t PioOpType, int FD, int FileStripeWidth,
           uint32_t BlockSize, globus_off_t Offset, globus_off_t Length,
           pio_data_callout DataCO, pio_range_complete_callback RngCmpltCB,
           pio_transfer_complete_callback XferCmpltCB, void *UserArg) {
-  DEBUG();
+  DEBUG(": UserArg(%p)", UserArg);
   globus_result_t result = GLOBUS_SUCCESS;
   pio_t *pio = NULL;
   hpss_pio_params_t pio_params;

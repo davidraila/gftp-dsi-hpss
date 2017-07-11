@@ -50,6 +50,7 @@
 #include "cksm.h"
 #include "pio.h"
 #include "stat.h"
+#include "logsupport.h"
 
 #define CKSUM_PATH  "/hpss/user/cksum/"
 
@@ -188,6 +189,7 @@ void cksm_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
 }
 
 void cksm_transfer_complete_callback(globus_result_t Result, void *UserArg) {
+  DEBUG();
   globus_result_t result = Result;
   cksm_info_t *cksm_info = UserArg;
   int rc = 0;
@@ -196,6 +198,7 @@ void cksm_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   int i;
 
   GlobusGFSName(cksm_transfer_complete_callback);
+  DEBUG("(%s)", cksm_info->Pathname);
 
   /* Give our error priority. */
   if (cksm_info->Result)
@@ -228,19 +231,20 @@ void cksm_transfer_complete_callback(globus_result_t Result, void *UserArg) {
 
   free(cksm_info->Pathname);
   free(cksm_info);
+  DEBUG(": return");
 }
 
 void cksm(globus_gfs_operation_t Operation,
           globus_gfs_command_info_t *CommandInfo, config_t *Config,
           commands_callback Callback) {
+  GlobusGFSName(cksm);
+  DEBUG("(%s): ", CommandInfo->pathname);
   globus_result_t result = GLOBUS_SUCCESS;
   cksm_info_t *cksm_info = NULL;
   int rc = 0;
   int file_stripe_width = 0;
   char *checksum_string = NULL;
   hpss_stat_t hpss_stat_buf;
-
-  GlobusGFSName(cksm);
 
   if (CommandInfo->cksm_offset == 0 && CommandInfo->cksm_length == -1) {
     result =
@@ -253,9 +257,9 @@ void cksm(globus_gfs_operation_t Operation,
     }
   }
 
-  rc = hpss_Stat(CommandInfo->pathname, &hpss_stat_buf);
-  if (rc) {
-    result = GlobusGFSErrorSystemError("hpss_Stat", -rc);
+  if ((rc = stat_hpss_stat(CommandInfo->pathname, &hpss_stat_buf))) {
+    DEBUG(": hpss_stat fails, result %d", rc);
+    result = GlobusGFSErrorSystemError("hpss_Stat for cksum", -rc);
     Callback(Operation, result, NULL);
     return;
   }
@@ -271,7 +275,7 @@ void cksm(globus_gfs_operation_t Operation,
   cksm_info->Callback = Callback;
   cksm_info->Config = Config;
   cksm_info->FileFD = -1;
-  cksm_info->Pathname = CommandInfo->pathname; //strdup(CommandInfo->pathname);
+  cksm_info->Pathname = strdup(CommandInfo->pathname);
   cksm_info->RangeLength = CommandInfo->cksm_length;
   if (cksm_info->RangeLength == -1)
     cksm_info->RangeLength = hpss_stat_buf.st_size - CommandInfo->cksm_offset;
@@ -329,6 +333,8 @@ cleanup:
 globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
                                   char *Checksum) {
   GlobusGFSName(checksum_set_file_sum);
+  DEBUG("(%s) to %s", Pathname, Checksum);
+  int ret = 0;
 
 
   if (Config->UDAChecksumSupport) {
@@ -373,6 +379,7 @@ globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
 
 globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
                                       char **ChecksumString) {
+  DEBUG("(%s)", Pathname);
   int retval = 0;
   char *tmp = NULL;
   char value[HPSS_XML_SIZE];
@@ -412,6 +419,8 @@ globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
       break;
     }
 
+    DEBUG(": decode attrs");
+
     tmp = hpss_ChompXMLHeader(algorithm, NULL);
     if (!tmp)
       return GLOBUS_SUCCESS;
@@ -434,6 +443,7 @@ globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
 
     *ChecksumString = hpss_ChompXMLHeader(checksum, NULL);
   }
+  DEBUG(": returns");
   return GLOBUS_SUCCESS;
 }
 

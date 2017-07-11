@@ -78,6 +78,7 @@ int stat_hpss_stat(char*p, hpss_stat_t* buf){
 int stat_hpss_dirent_count(char *p, hpss_fileattr_t *dir_attrs) {
   int ret;
   if ((ret = hpss_FileGetAttributes(p, dir_attrs)) < 0) {
+    ERR("(%s): hpss_FileGetAttributes failed", p);
     return -1;
   }
   int numdents = dir_attrs->Attrs.EntryCount ;
@@ -86,13 +87,16 @@ int stat_hpss_dirent_count(char *p, hpss_fileattr_t *dir_attrs) {
 }
 
 int stat_hpss_getdents(ns_ObjHandle_t *ObjHandle, ns_DirEntry_t *hdents, int cnt){
+  DEBUG(": count %d", cnt);
   int ret;
   uint32_t end = FALSE;
   uint64_t count_out; // not used, just match api
   if((ret = hpss_ReadAttrsHandle(ObjHandle, 0, NULL, sizeof(ns_DirEntry_t)*cnt,
                               TRUE, &end, &count_out, hdents)) < 0) {
+    ERR(": hpss_ReadAttrsHandle failed: code %d: %s, return", ret, strerror(errno));
     return ret;
   }
+  DEBUG(": return %ld", count_out);
   return count_out;
 }
 
@@ -173,8 +177,8 @@ globus_result_t stat_translate_lstat(char *p, hpss_stat_t *HpssStat,
 
 // Stat target, follow links
 globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *GFSStat) {
-  DEBUG("(%s)",  Pathname);
   GlobusGFSName(stat_object);
+  DEBUG("(%s)",  Pathname);
 
   hpss_stat_t hpss_stat_buf;
   int retval = hpss_Stat(Pathname, &hpss_stat_buf);
@@ -185,6 +189,7 @@ globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *GFSStat) {
   if ((retval = stat_translate_stat(Pathname, &hpss_stat_buf, GFSStat)))
     DEBUG(": stat_translate_stat(%s) failed: code %d, ",  Pathname, retval);
     return GlobusGFSErrorSystemError("translate_stat", -retval);
+  DEBUG("(%s): return %d",  Pathname, retval);
   return retval;
 }
 

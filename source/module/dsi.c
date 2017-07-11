@@ -74,7 +74,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
   sec_cred_t user_cred;
 
   GlobusGFSName(dsi_init);
-  INFO();
+  INFO(": %s: created by %s", PACKAGE_STRING, PACKAGE_VERSION);
 
   /*
    * Read in the config.
