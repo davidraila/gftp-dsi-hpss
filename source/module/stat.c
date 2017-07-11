@@ -123,16 +123,7 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
       stat_destroy(GFSStat);
       return GlobusGFSErrorSystemError("hpss_Lstat target", -retval);
     }
-#ifdef NO
-    // Check for relativepath
-    if (symlink_target[0] != '/'){
-      // Use full path from dirent
-      strcpy(symlink_full_target, Pathname);
-      char *last_path = strrchr(symlink_full_target, '/');
-      last_path = last_path ? last_path +1: symlink_full_target;
-      strcpy(last_path, symlink_target);
-    }
-#endif
+
     //snprintf(full_target, HPSS_MAX_PATH_NAME, "%s/%s",  Pathname, symlink_target);
     if ((GFSStat->symlink_target = globus_libc_strdup(symlink_target)) == NULL) {
     ERR(": globus_libc_strdup(%s) failed: code %d, return", symlink_target, retval);
