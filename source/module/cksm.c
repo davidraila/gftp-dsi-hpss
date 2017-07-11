@@ -51,6 +51,8 @@
 #include "pio.h"
 #include "stat.h"
 
+#define CKSUM_PATH  "/hpss/user/cksum/"
+
 int cksm_pio_callout(char *Buffer, uint32_t *Length, uint64_t Offset,
                      void *CallbackArg);
 
@@ -326,48 +328,46 @@ cleanup:
  */
 globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
                                   char *Checksum) {
-  int retval = 0;
-  char filesize_buf[32];
-  char lastupdate_buf[32];
-  globus_result_t result = GLOBUS_SUCCESS;
-  hpss_userattr_t user_attrs[7];
-  hpss_userattr_list_t attr_list;
-  globus_gfs_stat_t gfs_stat;
-
   GlobusGFSName(checksum_set_file_sum);
 
+
   if (Config->UDAChecksumSupport) {
-    result = stat_target(Pathname, &gfs_stat);
-    if (result != GLOBUS_SUCCESS)
-      return result;
-
-    snprintf(filesize_buf, sizeof(filesize_buf), "%lu", gfs_stat.size);
-    snprintf(lastupdate_buf, sizeof(lastupdate_buf), "%lu", time(NULL));
-    stat_destroy(&gfs_stat);
-
-    attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
-    attr_list.Pair = user_attrs;
-
-    attr_list.Pair[0].Key = "/hpss/user/cksum/algorithm";
+    hpss_stat_t hstat;
+    hpss_userattr_list_t attr_list;
+    //hpss_userattr_t user_attrs[7];
+    const unsigned attrsz=HPSS_XML_SIZE;
+    char mtime[attrsz], fsize[attrsz];
+    if ((ret = stat_hpss_stat(Pathname, &hstat))){
+      ERR("(%s): stat_target failed, code %d: %s, return", Pathname, ret, strerror(errno));
+      return ret;
+    }
+    DEBUG(": prep attrs");
+    snprintf(mtime, attrsz, "%u", hstat.hpss_st_mtime);
+    snprintf(fsize, attrsz, "%lu", hstat.st_size);
+    attr_list.len = 7;
+    attr_list.Pair = malloc(attr_list.len*sizeof(hpss_userattr_t));
+    attr_list.Pair[0].Key = CKSUM_PATH "algorithm";
     attr_list.Pair[0].Value = "md5";
-    attr_list.Pair[1].Key = "/hpss/user/cksum/checksum";
+    attr_list.Pair[1].Key = CKSUM_PATH "checksum";
     attr_list.Pair[1].Value = Checksum;
-    attr_list.Pair[2].Key = "/hpss/user/cksum/lastupdate";
-    attr_list.Pair[2].Value = lastupdate_buf;
-    attr_list.Pair[3].Key = "/hpss/user/cksum/errors";
+    attr_list.Pair[2].Key = CKSUM_PATH "lastupdate";
+    attr_list.Pair[2].Value = mtime;
+    attr_list.Pair[3].Key = CKSUM_PATH "errors";
     attr_list.Pair[3].Value = "0";
-    attr_list.Pair[4].Key = "/hpss/user/cksum/state";
+    attr_list.Pair[4].Key = CKSUM_PATH "state";
     attr_list.Pair[4].Value = "Valid";
-    attr_list.Pair[5].Key = "/hpss/user/cksum/app";
+    attr_list.Pair[5].Key = CKSUM_PATH "app";
     attr_list.Pair[5].Value = "GridFTP";
-    attr_list.Pair[6].Key = "/hpss/user/cksum/filesize";
-    attr_list.Pair[6].Value = filesize_buf;
-
-    retval = hpss_UserAttrSetAttrs(Pathname, &attr_list, NULL);
-    if (retval)
-      return GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -retval);
+    attr_list.Pair[6].Key = CKSUM_PATH "filesize";
+    attr_list.Pair[6].Value = fsize;
+    DEBUG("(%s): write attrs: ck(%s), fs(%s), mt(%s)",Pathname,attr_list.Pair[1].Value,attr_list.Pair[2].Value,attr_list.Pair[6].Value );
+    if((ret = hpss_UserAttrSetAttrs(Pathname, &attr_list, NULL))){
+      ERR("(%s): hpss_UserAttrSetAttrs failed, code %d, %s", Pathname, ret, strerror(errno));
+      return GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -ret);
+    }
+    free(attr_list.Pair);
   }
-
+  DEBUG("(%s): success", Pathname);
   return GLOBUS_SUCCESS;
 }
 
@@ -390,22 +390,26 @@ globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
     attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
     attr_list.Pair = user_attrs;
 
-    attr_list.Pair[0].Key = "/hpss/user/cksum/algorithm";
+    attr_list.Pair[0].Key = CKSUM_PATH "algorithm";
     attr_list.Pair[0].Value = algorithm;
-    attr_list.Pair[1].Key = "/hpss/user/cksum/checksum";
+    attr_list.Pair[1].Key = CKSUM_PATH "checksum";
     attr_list.Pair[1].Value = checksum;
-    attr_list.Pair[2].Key = "/hpss/user/cksum/state";
+    attr_list.Pair[2].Key = CKSUM_PATH "state";
     attr_list.Pair[2].Value = state;
 
     retval = hpss_UserAttrGetAttrs(Pathname, &attr_list, UDA_API_VALUE);
-
+    DEBUG(": hpss_UserAttrGetAttrs returns %d ", retval);
     switch (retval) {
     case 0:
       break;
     case -ENOENT:
+      DEBUG(": success (none)")
       return GLOBUS_SUCCESS;
+      break;
     default:
+      ERR("(%s): hpss_UserAttrGetAttrs failed, code %d, %s" ,Pathname, retval, strerror(errno));
       return GlobusGFSErrorSystemError("hpss_UserAttrGetAttrs", -retval);
+      break;
     }
 
     tmp = hpss_ChompXMLHeader(algorithm, NULL);
@@ -444,7 +448,7 @@ globus_result_t cksm_clear_checksum(char *Pathname, config_t *Config) {
     attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
     attr_list.Pair = user_attrs;
 
-    attr_list.Pair[0].Key = "/hpss/user/cksum/state";
+    attr_list.Pair[0].Key = CKSUM_PATH "state";
     attr_list.Pair[0].Value = "Invalid";
 
     retval = hpss_UserAttrSetAttrs(Pathname, &attr_list, NULL);
