@@ -200,7 +200,8 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
     DEBUG(": isALink(%s): get target",  DirEntry->Name);
     char symlink_target[HPSS_MAX_PATH_NAME];
     int ret;
-    hpss_stat_t tattr = {0};
+    hpss_stat_t tattr;
+    memset(&tattr,0,sizeof(tattr));
     /* Read the target. */
     if((ret = hpss_ReadlinkHandle(ParentObjHandle, DirEntry->Name, 
         symlink_target, HPSS_MAX_PATH_NAME, NULL)) < 0) {

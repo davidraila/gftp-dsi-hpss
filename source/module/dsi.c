@@ -208,8 +208,10 @@ static void dsi_stat(globus_gfs_operation_t Operation,
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
   DEBUG("(%s): file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);
-  globus_gfs_stat_t gstat = {0};         // gfs stat buf to send back
-  hpss_stat_t hstat = {0};  // hpss stat buf for lstat
+  globus_gfs_stat_t gstat;         // gfs stat buf to send back
+  memset(&gstat,0,sizeof(gstat));
+  hpss_stat_t hstat;  // hpss stat buf for lstat
+  memset(&hstat, 0, sizeof(hstat));
   int ret;
   char *p = StatInfo->pathname;   // the path being stat'd
   int isLink, isDir;
@@ -243,17 +245,23 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   // else: not file-only process directory
 
   DEBUG("(%s): stat dirents", p);
-  hpss_fileattr_t dir_attrs = {{0}};
+  hpss_fileattr_t dir_attrs;
+  memset(&dir_attrs, 0, sizeof(dir_attrs));
   int ndents = stat_hpss_dirent_count(p, &dir_attrs);
-  globus_gfs_stat_t gdents[ndents];
-  ns_DirEntry_t hdents[ndents];
-  memset(&hdents[0], 0, sizeof(hdents));
-  memset(&gdents[0], 0, sizeof(gdents));
+  globus_gfs_stat_t *gdents = malloc(sizeof(globus_gfs_stat_t)*ndents);
+  ns_DirEntry_t * hdents = malloc(sizeof(ns_DirEntry_t)*ndents);
+  memset(&hdents[0], 0, sizeof(ns_DirEntry_t)*ndents);
+  memset(&gdents[0], 0, sizeof(globus_gfs_stat_t)*ndents);
+  DEBUG(": sizeof hdents %ld, sizeof gdents %ld, sizeof globus_gfs_stat_t %ld, sizeof ns_DirEntry_t %ld",
+     sizeof(hdents), sizeof(gdents), sizeof(globus_gfs_stat_t), sizeof(ns_DirEntry_t));
   
   if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, hdents, ndents)) != ndents){
     ERR(": stat_hpss_getDents failed: code %d", ret);
     ret = GlobusGFSErrorSystemError(__func__, -ret);
     stat_destroy(&gstat);
+    stat_destroy_array(gdents, ndents);
+    free(gdents);
+    free(hdents);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
   }
@@ -263,6 +271,9 @@ static void dsi_stat(globus_gfs_operation_t Operation,
   if ((ret = hpss_GetPathHandle(&dir_attrs.ObjectHandle, &fileset_root, dir_path)) < 0){
     ERR(": stat_hpss_getDents failed: code %d", ret);
     stat_destroy(&gstat);
+    stat_destroy_array(gdents, ndents);
+    free(gdents);
+    free(hdents);
     ret = GlobusGFSErrorSystemError(__func__, -ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
@@ -288,6 +299,8 @@ static void dsi_stat(globus_gfs_operation_t Operation,
 
   globus_gridftp_server_finished_stat(Operation, 0, &gdents[0], good_dents);
   stat_destroy_array(&gdents[0], ndents);
+  free(gdents);
+  free(hdents);
   DEBUG("(%s): return", StatInfo->pathname);
 }
 
