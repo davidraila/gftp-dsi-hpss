@@ -50,6 +50,7 @@
 #include "markers.h"
 #include "pio.h"
 #include "retr.h"
+#include "stat.h"
 #include "logsupport.h"
 
 globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
