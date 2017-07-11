@@ -438,7 +438,7 @@ void stor_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
 
 static int release_buffer(void *Datum, void *Arg) {
   ((stor_buffer_t *)Datum)->Valid = INVALID_TAG;
-  free(((stor_buffer_t *)Datum)->Buffer);
+  free(((stor_buffer_t *)Datum)->_Buffer);
 
   return 0;
 }
