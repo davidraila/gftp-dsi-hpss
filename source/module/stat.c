@@ -107,9 +107,10 @@ globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
   GlobusGFSName(stat_translate_stat);
 
   /* If it is a symbolic link... */
+  char symlink_target[HPSS_MAX_PATH_NAME];      // possibly relative link target
   if (S_ISLNK(HpssStat->st_mode)) {
     DEBUG(": is a link");
-    char symlink_target[HPSS_MAX_PATH_NAME];      // possibly relative link target
+    
     //char symlink_full_target[HPSS_MAX_PATH_NAME]; // full-path link target
     /* Read the target. */  
     int retval;
