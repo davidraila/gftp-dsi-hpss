@@ -166,9 +166,13 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
   *FreeBuffer = malloc(sizeof(retr_buffer_t));
   if (!*FreeBuffer)
     return GlobusGFSErrorMemory("free_buffer");
-  (*FreeBuffer)->Buffer = malloc(RetrInfo->BlockSize);
-  if (!(*FreeBuffer)->Buffer)
+  hpss_PAMalloc(RetrInfo->BlockSize, &(*FreeBuffer)->_Buffer, &(*FreeBuffer)->Buffer);
+  DEBUG("PMA: buf %p _buf %p", (*FreeBuffer)->Buffer, (*FreeBuffer)->_Buffer);
+  //(*FreeBuffer)->Buffer = malloc(RetrInfo->BlockSize);
+  if (!(*FreeBuffer)->Buffer) {
+    ERR(": PAMalloc")
     return GlobusGFSErrorMemory("free_buffer");
+  }
   (*FreeBuffer)->RetrInfo = RetrInfo;
   (*FreeBuffer)->Valid = VALID_TAG;
   globus_list_insert(&RetrInfo->AllBufferList, *FreeBuffer);
@@ -284,7 +288,7 @@ void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
 
 static int release_buffer(void *Datum, void *Arg) {
   ((retr_buffer_t *)Datum)->Valid = INVALID_TAG;
-  free(((retr_buffer_t *)Datum)->Buffer);
+  free(((retr_buffer_t *)Datum)->_Buffer);
   return 0;
 }
 

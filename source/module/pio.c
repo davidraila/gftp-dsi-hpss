@@ -167,11 +167,17 @@ void *pio_thread(void *Arg) {
   int coord_launched = 0;
   int safe_to_end_pio = 0;
   pthread_t thread_id;
-  char *buffer = NULL;
+  void *buffer = NULL;
+  void *_buffer;
 
   GlobusGFSName(pio_thread);
 
-  buffer = malloc(pio->BlockSize);
+DEBUG(": alloc buf %d", pio->BlockSize);
+  hpss_PAMalloc(pio->BlockSize, &_buffer, &buffer);
+  DEBUG(": buf %p _buf %p", buffer, _buffer);
+  //posix_memalign(&buffer, 8192, pio->BlockSize);
+  //memset(buffer, 0, pio->BlockSize);
+  //buffer = malloc(pio->BlockSize);
   if (!buffer) {
     ERR(": malloc failed")
     result = GlobusGFSErrorMemory("pio buffer");
@@ -183,6 +189,7 @@ void *pio_thread(void *Arg) {
    * a buffer right after hpss_PIOExecute().
    */
   pio->Buffer = buffer;
+  pio->_Buffer = _buffer;
 
   result = pio_launch_attached(pio_coordinator_thread, pio, &thread_id);
   if (result){
@@ -208,8 +215,8 @@ cleanup:
 
   if (coord_launched)
     pthread_join(thread_id, NULL);
-  if (buffer)
-    free(buffer);
+  if (_buffer)
+    free(_buffer);
 
   if (!result)
     result = pio->CoordinatorResult;

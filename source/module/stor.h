@@ -65,7 +65,8 @@
 struct stor_info;
 
 typedef struct {
-  char *Buffer;
+  void *Buffer;
+  void *_Buffer;
   globus_off_t BufferOffset;   // Moves as buffer is consumed
   globus_off_t TransferOffset; // Moves as BufferOffset moves
   globus_off_t BufferLength;   // Moves as BufferOffset moves

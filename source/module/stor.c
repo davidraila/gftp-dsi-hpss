@@ -298,8 +298,11 @@ globus_result_t stor_launch_gridftp_reads(stor_info_t *StorInfo) {
         result = GlobusGFSErrorMemory("stor_buffer_t");
         break;
       }
-      stor_buffer->Buffer = globus_malloc(StorInfo->BlockSize);
+      hpss_PAMalloc(StorInfo->BlockSize, &stor_buffer->_Buffer, &stor_buffer->Buffer);
+      DEBUG(": PMA buf %p _buf %p", stor_buffer->Buffer, stor_buffer->_Buffer);
+      //stor_buffer->Buffer = globus_malloc(StorInfo->BlockSize);
       if (!stor_buffer->Buffer) {
+        ERR(": PAMalloc");
         free(stor_buffer);
         result = GlobusGFSErrorMemory("stor_buffer_t");
         break;
