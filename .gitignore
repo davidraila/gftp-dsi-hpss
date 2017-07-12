@@ -13,7 +13,6 @@ stamp-h1
 **/*.lo
 *.la
 **/*.la
-*.in
 compile
 GPATH
 GRTAGS
@@ -22,7 +21,6 @@ GTAGS
 autom4te.cache/
 aclocal.m4
 Makefile
-Makefile.am
 configure
 libtool
 source/Makefile
