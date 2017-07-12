@@ -300,6 +300,9 @@ void cksm(globus_gfs_operation_t Operation,
   if (result)
     goto cleanup;
 
+	result = cksm_start_markers(&cksm_info->Marker, Operation);
+	if (result) goto cleanup;
+
   /*
    * Setup PIO
    */
@@ -336,22 +339,22 @@ globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
   DEBUG("(%s) to %s", Pathname, Checksum);
   int ret = 0;
 
-
   if (Config->UDAChecksumSupport) {
-    hpss_stat_t hstat;
-    hpss_userattr_list_t attr_list;
-    //hpss_userattr_t user_attrs[7];
+    hpss_stat_t hstat = {0};
+    hpss_userattr_list_t attr_list={0};
+    hpss_userattr_t user_attrs[7];
     const unsigned attrsz=HPSS_XML_SIZE;
     char mtime[attrsz], fsize[attrsz];
-    if ((ret = stat_hpss_stat(Pathname, &hstat))){
+    if ((ret = stat_hpss_stat(Pathname, &hstat))){ //CHECK was stat_object
       ERR("(%s): stat_target failed, code %d: %s, return", Pathname, ret, strerror(errno));
       return ret;
     }
     DEBUG(": prep attrs");
+    attr_list.len = 7;
+    memset(&user_attrs, 0, sizeof(user_attrs));
     snprintf(mtime, attrsz, "%u", hstat.hpss_st_mtime);
     snprintf(fsize, attrsz, "%lu", hstat.st_size);
-    attr_list.len = 7;
-    attr_list.Pair = malloc(attr_list.len*sizeof(hpss_userattr_t));
+    attr_list.Pair = &user_attrs[0]; //malloc(attr_list.len*sizeof(hpss_userattr_t));
     attr_list.Pair[0].Key = CKSUM_PATH "algorithm";
     attr_list.Pair[0].Value = "md5";
     attr_list.Pair[1].Key = CKSUM_PATH "checksum";
@@ -371,7 +374,7 @@ globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
       ERR("(%s): hpss_UserAttrSetAttrs failed, code %d, %s", Pathname, ret, strerror(errno));
       return GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -ret);
     }
-    free(attr_list.Pair);
+    //free(attr_list.Pair); // CHECK
   }
   DEBUG("(%s): success", Pathname);
   return GLOBUS_SUCCESS;

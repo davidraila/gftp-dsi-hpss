@@ -118,7 +118,9 @@ void *pio_coordinator_thread(void *Arg) {
     if (rc != 0 && rc != 0xDEADBEEF){
       pio->CoordinatorResult =
           GlobusGFSErrorSystemError("hpss_PIOExecute", -rc);
-          ERR(": hpss_PIOExecute failed: rc(%d)", rc)
+          ERR(": hpss_PIOExecute failed: rc(%d)", rc); // CHECK 3
+			DEBUG(": returns NULL");
+  		return NULL;
     }
 
     /*
@@ -191,7 +193,7 @@ DEBUG(": alloc buf %d", pio->BlockSize);
   pio->Buffer = buffer;
   pio->_Buffer = _buffer;
 
-  result = pio_launch_attached(pio_coordinator_thread, pio, &thread_id);
+  result = pio_launch_attached(pio_coordinator_thread, pio, &thread_id);  //CHECK THESE
   if (result){
     ERR(": pio_launch_attached failed: code %d", result);
     goto cleanup;

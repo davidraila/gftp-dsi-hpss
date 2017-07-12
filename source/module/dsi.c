@@ -204,7 +204,7 @@ static void dsi_command(globus_gfs_operation_t Operation,
 // link to file     lstat of target               lstat of target
 // link to dir      lstat of target               lstats of dirents  
 //
-static void dsi_stat(globus_gfs_operation_t Operation,
+static void dsi_stat(globus_gfs_operation_t Operation,  //CHECK
               globus_gfs_stat_info_t *StatInfo, void *Arg) {
   DEBUG("(%s): file-only(%d)", StatInfo->pathname, StatInfo->file_only);
   GlobusGFSName(dsi_stat);

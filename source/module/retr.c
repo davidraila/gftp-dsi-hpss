@@ -98,7 +98,7 @@ void retr_gridftp_callout(globus_gfs_operation_t Operation,
   INFO(": operation: %p", Operation);
 
   if (retr_buffer->Valid != VALID_TAG) {
-    ERR(": invalid operation %p", Operation);
+    ERR(": invalid operation %p", Operation); // CHECK
     return;
   }
 
@@ -164,9 +164,9 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
     return GLOBUS_SUCCESS;
   }
 
-  *FreeBuffer = malloc(sizeof(retr_buffer_t));
-  if (!*FreeBuffer)
-    return GlobusGFSErrorMemory("free_buffer");
+  //*FreeBuffer = malloc(sizeof(retr_buffer_t)); ///CHECK
+  //if (!*FreeBuffer)
+    //return GlobusGFSErrorMemory("free_buffer");
   hpss_PAMalloc(RetrInfo->BlockSize, &(*FreeBuffer)->_Buffer, &(*FreeBuffer)->Buffer);
   DEBUG("PMA: buf %p _buf %p", (*FreeBuffer)->Buffer, (*FreeBuffer)->_Buffer);
   //(*FreeBuffer)->Buffer = malloc(RetrInfo->BlockSize);
@@ -174,7 +174,7 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
     ERR(": PAMalloc")
     return GlobusGFSErrorMemory("free_buffer");
   }
-  (*FreeBuffer)->RetrInfo = RetrInfo;
+  (*FreeBuffer)->RetrInfo = RetrInfo;	///CHECK
   (*FreeBuffer)->Valid = VALID_TAG;
   globus_list_insert(&RetrInfo->AllBufferList, *FreeBuffer);
   DEBUG(": return");
@@ -214,7 +214,7 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
         Offset, -1, retr_gridftp_callout, free_buffer);
 
     if (result) {
-      if (!retr_info->Result)
+      if (!retr_info->Result) ///CHECK
         retr_info->Result = result;
       rc = PIO_END_TRANSFER; /* Signal to shutdown. */
       ERR(": globus_gridftp_server_register_write failed: code %d", result);
