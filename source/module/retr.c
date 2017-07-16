@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -234,7 +234,7 @@ void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
   // PIO has come across a hole in the file.
   char *buffer = calloc(1, retr_info->BlockSize);
   while (retr_info->CurrentOffset < (*Length + *Offset)) {
-    globus_off_t fill_size = retr_info->CurrentOffset - (*Length + *Offset);
+    unsigned fill_size = retr_info->CurrentOffset - (*Length + *Offset);
     if (fill_size > retr_info->BlockSize)
       fill_size = retr_info->BlockSize;
 

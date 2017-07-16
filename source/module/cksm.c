@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -50,6 +50,9 @@
 #include "cksm.h"
 #include "pio.h"
 #include "stat.h"
+#include "logsupport.h"
+int sigcatch(int sig, void** pp_oldhandler, void** pp_oldset, int*);
+int sigreset(int sig, void** pp_oldhandler, void** pp_oldset, int*);
 
 int cksm_pio_callout(char *Buffer, uint32_t *Length, uint64_t Offset,
                      void *CallbackArg);
@@ -326,48 +329,69 @@ cleanup:
  */
 globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
                                   char *Checksum) {
+  DEBUG("(%s)", Pathname);
+  char p[HPSS_MAX_PATH_NAME];
+  strncpy(p, Pathname,MAX_XPATH_ELEM_SIZE);
   int retval = 0;
-  char filesize_buf[32];
-  char lastupdate_buf[32];
+  char filesize_buf[MAX_XPATH_ELEM_SIZE];
+  char lastupdate_buf[MAX_XPATH_ELEM_SIZE];
   globus_result_t result = GLOBUS_SUCCESS;
-  hpss_userattr_t user_attrs[7];
-  hpss_userattr_list_t attr_list;
-  globus_gfs_stat_t gfs_stat;
+  hpss_userattr_t uda[8];
+  hpss_userattr_list_t alist;
+  
 
   GlobusGFSName(checksum_set_file_sum);
 
   if (Config->UDAChecksumSupport) {
-    result = stat_object(Pathname, &gfs_stat);
-    if (result != GLOBUS_SUCCESS)
-      return result;
+    char gstat_name[HPSS_MAX_PATH_NAME];
+    char gstat_link_name[HPSS_MAX_PATH_NAME];
+    globus_gfs_stat_t gfs_stat;
+    result = stat_object(Pathname, &gfs_stat, gstat_name, gstat_link_name);
+    if (result != GLOBUS_SUCCESS){
+      DEBUG(": stat_object failed");
+      return GlobusGFSErrorSystemError("File stat error", -retval);
+    }
 
-    snprintf(filesize_buf, sizeof(filesize_buf), "%lu", gfs_stat.size);
-    snprintf(lastupdate_buf, sizeof(lastupdate_buf), "%lu", time(NULL));
-    stat_destroy(&gfs_stat);
+    snprintf(filesize_buf, MAX_XPATH_ELEM_SIZE, "%lu", gfs_stat.size);
+    snprintf(lastupdate_buf, MAX_XPATH_ELEM_SIZE, "%lu", time(NULL));
 
-    attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
-    attr_list.Pair = user_attrs;
+    alist.len = 7;
+    alist.Pair = uda;
 
-    attr_list.Pair[0].Key = "/hpss/user/cksum/algorithm";
-    attr_list.Pair[0].Value = "md5";
-    attr_list.Pair[1].Key = "/hpss/user/cksum/checksum";
-    attr_list.Pair[1].Value = Checksum;
-    attr_list.Pair[2].Key = "/hpss/user/cksum/lastupdate";
-    attr_list.Pair[2].Value = lastupdate_buf;
-    attr_list.Pair[3].Key = "/hpss/user/cksum/errors";
-    attr_list.Pair[3].Value = "0";
-    attr_list.Pair[4].Key = "/hpss/user/cksum/state";
-    attr_list.Pair[4].Value = "Valid";
-    attr_list.Pair[5].Key = "/hpss/user/cksum/app";
-    attr_list.Pair[5].Value = "GridFTP";
-    attr_list.Pair[6].Key = "/hpss/user/cksum/filesize";
-    attr_list.Pair[6].Value = filesize_buf;
-
-    retval = hpss_UserAttrSetAttrs(Pathname, &attr_list, NULL);
-    if (retval)
+    uda[0].Key = "/hpss/user/cksum/algorithm";
+    uda[0].Value = "md5";
+    uda[1].Key = "/hpss/user/cksum/checksum";
+    uda[1].Value = Checksum;
+    uda[2].Key = "/hpss/user/cksum/lastupdate";
+    uda[2].Value = lastupdate_buf;
+    uda[3].Key = "/hpss/user/cksum/errors";
+    uda[3].Value = "0";
+    uda[4].Key = "/hpss/user/cksum/state";
+    uda[4].Value = "Valid";
+    uda[5].Key = "/hpss/user/cksum/app";
+    uda[5].Value = "GridFTP";
+    uda[6].Key = "/hpss/user/cksum/filesize";
+    uda[6].Value = filesize_buf;
+    uda[7].Key = uda[7].Value = 0;  // sanity
+   
+#ifdef NO
+    void *hdlr, *set;
+    int hit=0;
+    sigcatch(11, &hdlr, &set, &hit);
+#endif
+    retval = hpss_UserAttrSetAttrs(p, &alist, NULL);
+#ifdef NO
+    DEBUG(": attrs done, hit %d", hit);
+    sigreset(11, &hdlr, &set, &hit);
+#endif
+ 
+    if (retval){
+      DEBUG(": hpss_UserAttrSetAttrs failed");
       return GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -retval);
+    }
   }
 
+  DEBUG("(%s): success", Pathname);
   return GLOBUS_SUCCESS;
 }
 
@@ -379,25 +403,27 @@ globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
   char state[HPSS_XML_SIZE];
   char algorithm[HPSS_XML_SIZE];
   char checksum[HPSS_XML_SIZE];
-  hpss_userattr_t user_attrs[3];
-  hpss_userattr_list_t attr_list;
+  hpss_userattr_t udas[4];
+  hpss_userattr_list_t alist;
 
   GlobusGFSName(checksum_get_file_sum);
 
   *ChecksumString = NULL;
 
   if (Config->UDAChecksumSupport) {
-    attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
-    attr_list.Pair = user_attrs;
+    alist.len = 3;
+    alist.Pair = udas;
 
-    attr_list.Pair[0].Key = "/hpss/user/cksum/algorithm";
-    attr_list.Pair[0].Value = algorithm;
-    attr_list.Pair[1].Key = "/hpss/user/cksum/checksum";
-    attr_list.Pair[1].Value = checksum;
-    attr_list.Pair[2].Key = "/hpss/user/cksum/state";
-    attr_list.Pair[2].Value = state;
+    udas[0].Key = "/hpss/user/cksum/algorithm";
+    udas[0].Value = algorithm;
+    udas[1].Key = "/hpss/user/cksum/checksum";
+    udas[1].Value = checksum;
+    udas[2].Key = "/hpss/user/cksum/state";
+    udas[2].Value = state;
+    udas[3].Key = 0;
+    udas[3].Value = 0;
 
-    retval = hpss_UserAttrGetAttrs(Pathname, &attr_list, UDA_API_VALUE);
+    retval = hpss_UserAttrGetAttrs(Pathname, &alist, UDA_API_VALUE);
 
     switch (retval) {
     case 0:
@@ -435,19 +461,19 @@ globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
 
 globus_result_t cksm_clear_checksum(char *Pathname, config_t *Config) {
   int retval = 0;
-  hpss_userattr_t user_attrs[1];
-  hpss_userattr_list_t attr_list;
+  hpss_userattr_t udas[2];
+  hpss_userattr_list_t alist;
 
   GlobusGFSName(checksum_clear_file_sum);
 
   if (Config->UDAChecksumSupport) {
-    attr_list.len = sizeof(user_attrs) / sizeof(*user_attrs);
-    attr_list.Pair = user_attrs;
+    alist.len = 1;
+    alist.Pair = udas;
 
-    attr_list.Pair[0].Key = "/hpss/user/cksum/state";
-    attr_list.Pair[0].Value = "Invalid";
+    udas[0].Key = "/hpss/user/cksum/state";
+    udas[0].Value = "Invalid";
 
-    retval = hpss_UserAttrSetAttrs(Pathname, &attr_list, NULL);
+    retval = hpss_UserAttrSetAttrs(Pathname, &alist, NULL);
     if (retval && retval != -ENOENT)
       return GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -retval);
   }

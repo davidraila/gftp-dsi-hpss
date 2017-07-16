@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -130,21 +130,17 @@ void commands_rename(globus_gfs_operation_t Operation,
   GlobusGFSName(commands_rename);
 
   if (Config->QuotaSupport) {
-    hpss_userattr_list_t attr_list;
+    hpss_userattr_t udas[2];
+    hpss_userattr_list_t alist;
+    alist.len = 1;
+    alist.Pair = udas;
 
-    attr_list.len = 1;
-    attr_list.Pair = malloc(sizeof(hpss_userattr_t));
-    if (!attr_list.Pair) {
-      result = GlobusGFSErrorMemory("hpss_userattr_t");
-      goto cleanup;
-    }
-
-    attr_list.Pair[0].Key = "/hpss/ncsa/quota/Renamed";
-    attr_list.Pair[0].Value = "1";
+    udas[0].Key = "/hpss/ncsa/quota/Renamed";
+    udas[0].Value = "1";
+    udas[1].Key = udas[1].Value = 0; //sanity check
 
     retval =
-        hpss_UserAttrSetAttrs(CommandInfo->from_pathname, &attr_list, NULL);
-    free(attr_list.Pair);
+        hpss_UserAttrSetAttrs(CommandInfo->from_pathname, &alist, NULL);
     if (retval) {
       result = GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -retval);
       goto cleanup;

@@ -1,9 +1,9 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright © 2017 NCSA.  All rights reserved.
  *
- * Developed by:
+ * Author:  David Raila, raila@illinois.edu, http://github.com/davidraila
  *
  * Storage Enabling Technologies (SET)
  *
@@ -38,39 +38,41 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS WITH THE SOFTWARE.
  */
-#ifndef HPSS_DSI_STAT_H
-#define HPSS_DSI_STAT_H
+#ifndef LOGSUPPORT_h
+#define LOGSUPPORT_h
 
-/*
- * Globus includes
- */
-#include <globus_gridftp_server.h>
+//#define DSI_SYSLOG // should be added to autoconf and/or cmdline flags
 
-/*
- * HPSS includes
- */
-#include <ns_ObjHandle.h>
+#include <syslog.h>
+#include <unistd.h>
+//
+// User interfaces
+//
+#define EMERG(format, args...) SYSLOG(LOG_EMERG, __FILE__, __LINE__, "", format, ##args)
+#define ALERT(format, args...) SYSLOG(LOG_ALERT, __FILE__, __LINE__, "", format, ##args)
+#define CRIT(format, args...) SYSLOG(LOG_CRIT, __FILE__, __LINE__, "", format, ##args)
+#define ERR(format, args...) SYSLOG(LOG_ERR, __FILE__, __LINE__, "", format, ##args)
+#define WARNING(format, args...) SYSLOG(LOG_WARNING, __FILE__, __LINE__, "", format, ##args)
+#define NOTICE(format, args...) SYSLOG(LOG_NOTICE, __FILE__, __LINE__, "", format, ##args)
+#define INFO(format, args...) SYSLOG(LOG_INFO, __FILE__, __LINE__, "", format, ##args)
+#define DEBUG(format, args...) SYSLOG(LOG_DEBUG, __FILE__, __LINE__, "", format, ##args)
 
-int stat_hpss_lstat(char*p, hpss_stat_t* buf);
-int stat_hpss_stat(char*p, hpss_stat_t* buf);
-globus_result_t stat_translate_lstat(char *, hpss_stat_t *, globus_gfs_stat_t *, char *name_storage);
-int stat_hpss_dirent_count(char *p, hpss_fileattr_t *dir_attrs);
-int stat_hpss_getdents(ns_ObjHandle_t *ObjHandle, ns_DirEntry_t *hdents, int count, uint64_t* dir_offset, uint32_t *end);
+//
+// Assembles a vsprintf style args "format", args...
+//
+#define LOGVARGS(file, line, prefix, format, args...) "dsi[%s:%d]%s" prefix format, file, line, __func__, ##args
+//
+// Send the LOGVARGS to syslog at the passed level
+//
 
-globus_result_t stat_target(char *Pathname, globus_gfs_stat_t *, char *name_storage, char *symlink_storage);
-globus_result_t stat_translate_stat(char *Pathname, hpss_stat_t *HpssStat,
-  globus_gfs_stat_t *GFSStat, char *name_storage, char *symlink_storage);
-
-globus_result_t stat_object(char *Pathname, globus_gfs_stat_t *GFSStat, char* gname_storage, char *glink_storage);
-
-
-globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
-                                         ns_DirEntry_t *DirEntry,
-                                         globus_gfs_stat_t *GFSStat, char* dir_path, char *name_storage, char *symlink_storage);
-
-#ifdef NO
-void stat_destroy(globus_gfs_stat_t *);
-void stat_destroy_array(globus_gfs_stat_t *, int Count);
+#ifdef DSI_SYSLOG
+#define SYSLOG(level, file, line, prefix, format, args...)  syslog(level, LOGVARGS(file, line, prefix, format, ##args))
+#else
+#define SYSLOG(level, file, line, prefix, format, args...)
 #endif
+//
+// Send the LOGVARGS to printf
+//
+#define STDLOG(level, file, line, prefix, format, args...) {printf( LOGVARGS(file, line, prefix, format, ##args));}
 
-#endif /* HPSS_DSI_STAT_H */
+#endif // LOGSUPPORT_H

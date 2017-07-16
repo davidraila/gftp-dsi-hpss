@@ -2,9 +2,10 @@
 .deps
 **/.libs
 .libs
+configure
 config.status
 config.log
-config.h
+config.h*
 stamp-h1
 *.o
 **/*.o
@@ -12,11 +13,13 @@ stamp-h1
 **/*.lo
 *.la
 **/*.la
+compile
 GPATH
 GRTAGS
 GTAGS
 .vscode/
-autom4te.cache
+autom4te.cache/
+aclocal.m4
 Makefile
 configure
 libtool
