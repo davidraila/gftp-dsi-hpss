@@ -1,6 +1,7 @@
 **/.deps
 .deps
 **/.libs
+*.in
 .libs
 configure
 config.status
