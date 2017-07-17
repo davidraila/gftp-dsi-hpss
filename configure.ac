@@ -45,8 +45,9 @@ AC_PROG_LIBTOOL
 AC_PROG_CXX
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
+LDFLAGS+=" -rdynamic"
 CFLAGS+=" -rdynamic"
-LDLAGS+=" -rdynamic"
+
 
 #
 # For checksums
@@ -67,13 +68,13 @@ AC_ARG_WITH(globus,
 #
 if test "x$globus_location" == "x/usr" ; then
 	# RPM installation
-	CPPFLAGS="-I$globus_location/lib64/globus/include -I/usr/include/globus -rdynamic"
+	CPPFLAGS="-I$globus_location/lib64/globus/include -I/usr/include/globus"
 	AC_CHECK_HEADERS([globus_config.h],
 	                 [GLOBUS_CONFIG_CPPFLAGS="$CPPFLAGS"],
 	                 [AC_MSG_ERROR([globus_config.h not found, install globus-core])])
 else
 	# Source installation
-	CPPFLAGS="-I$globus_location/include/globus/gcc64dbg -rdynamic"
+	CPPFLAGS="-I$globus_location/include/globus/gcc64dbg"
 	AC_CHECK_HEADERS([globus_config.h],
 	                 [GLOBUS_CONFIG_CPPFLAGS="$CPPFLAGS"],
 	                 [AC_MSG_ERROR(globus_config.h not found in $globus_location)])
@@ -82,7 +83,7 @@ fi
 #
 # Now check for globus_common.h using globus_config.h's location
 #
-CPPFLAGS="-I$globus_location/include/globus $GLOBUS_CONFIG_CPPFLAGS -rdynamic"
+CPPFLAGS="-I$globus_location/include/globus $GLOBUS_CONFIG_CPPFLAGS"
 AC_CHECK_HEADERS([globus_common.h],
                  [GLOBUS_COMMON_CPPFLAGS="-I$globus_location/include/globus"],
                  [AC_MSG_ERROR(globus_common.h not found)])
@@ -108,7 +109,7 @@ AC_SUBST(GLOBUS_CPPFLAGS)
 #
 # Find the needed Globus libraries
 #
-LDFLAGS="-L$globus_location/lib64/ -rdynamic"
+LDFLAGS="-L$globus_location/lib64/"
 AC_CHECK_LIB([globus_gridftp_server],
              [globus_gridftp_server_begin_transfer],
              [GLOBUS_LDFLAGS=-L$globus_location/lib64],
