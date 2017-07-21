@@ -7,6 +7,9 @@ config.status
 config.log
 config.h*
 stamp-h1
+depcomp
+ltmain.sh
+missing
 *.o
 **/*.o
 *.lo
