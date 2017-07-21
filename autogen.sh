@@ -1,3 +1,4 @@
+rm -rf autom4te.cache
 aclocal
 libtoolize --force
 autoheader
