@@ -1,10 +1,7 @@
 **/.deps
 .deps
 **/.libs
-*.in
 .libs
-INSTALL
-COPYING
 configure
 config.status
 config.log
