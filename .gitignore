@@ -32,3 +32,9 @@ source/loaders/Makefile
 source/loaders/version.h
 source/module/Makefile
 m4
+config.h
+config.h.in
+Makefile.in
+source/loaders/Makefile.in
+source/Makefile.in
+source/module/Makefile.in
