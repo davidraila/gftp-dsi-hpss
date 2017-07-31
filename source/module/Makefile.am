@@ -67,6 +67,7 @@ SOURCES = dsi.c \
 	      cksm.c \
 	      pio.c \
 	      dl.c \
+				logging.c \
 	      markers.c \
 	      stage.c \
 	      stat.c

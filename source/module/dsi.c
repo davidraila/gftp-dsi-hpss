@@ -60,7 +60,7 @@
 #include "authenticate.h"
 #include "commands.h"
 #include "config.h"
-#include "logsupport.h"
+#include "logging.h"
 #include "markers.h"
 #include "retr.h"
 #include "stat.h"
@@ -132,6 +132,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
 
   GlobusGFSName(dsi_init);
   //INFO(": %s: %s", PACKAGE_VERSION, PACKAGE_STRING);
+  INFO(": NCSA DSI 2.4");
 
   /*
    * Read in the config.
@@ -141,6 +142,19 @@ static void dsi_init(globus_gfs_operation_t Operation,
     ERR(": config_init failed");
     goto cleanup;
   }
+  INFO(": loglevel: %d", config->LogLevel);
+
+    // set log level
+    int mask = LOG_INFO;
+    if (config->LogLevel) mask = config->LogLevel;
+    dsi_setLogLevel(mask);
+    ALERT(": alert");
+    CRIT(": crit");
+    ERR(": err");
+    WARNING(": warn");
+    NOTICE(": notice");
+    INFO(": info");
+    DEBUG(": debug");
 
   /* Now authenticate. */
   result = authenticate(config->LoginName, config->AuthenticationMech,

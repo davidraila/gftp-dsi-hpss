@@ -55,7 +55,7 @@
  * Local includes
  */
 #include "stat.h"
-#include "logsupport.h"
+#include "logging.h"
 
 int stat_hpss_lstat(char*p, hpss_stat_t* buf){
   int ret; 

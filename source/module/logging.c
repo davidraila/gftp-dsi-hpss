@@ -3,9 +3,9 @@
  *
  * Copyright © 2017 NCSA.  All rights reserved.
  *
- * Author:  David Raila, raila@illinois.edu, http://github.com/davidraila
+ * Developed by: David Raila raila@illinois.edu
  *
- * Storage Enabling Technologies (SET)
+ * Storage Enabling Technologies (SET) Group
  *
  * Nation Center for Supercomputing Applications (NCSA)
  *
@@ -38,41 +38,17 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS WITH THE SOFTWARE.
  */
-#ifndef LOGSUPPORT_h
-#define LOGSUPPORT_h
 
-//#define DSI_SYSLOG // should be added to autoconf and/or cmdline flags
 
-#include <syslog.h>
-#include <unistd.h>
-//
-// User interfaces
-//
-#define EMERG(format, args...) SYSLOG(LOG_EMERG, __FILE__, __LINE__, "", format, ##args)
-#define ALERT(format, args...) SYSLOG(LOG_ALERT, __FILE__, __LINE__, "", format, ##args)
-#define CRIT(format, args...) SYSLOG(LOG_CRIT, __FILE__, __LINE__, "", format, ##args)
-#define ERR(format, args...) SYSLOG(LOG_ERR, __FILE__, __LINE__, "", format, ##args)
-#define WARNING(format, args...) SYSLOG(LOG_WARNING, __FILE__, __LINE__, "", format, ##args)
-#define NOTICE(format, args...) SYSLOG(LOG_NOTICE, __FILE__, __LINE__, "", format, ##args)
-#define INFO(format, args...) SYSLOG(LOG_INFO, __FILE__, __LINE__, "", format, ##args)
-#define DEBUG(format, args...) SYSLOG(LOG_DEBUG, __FILE__, __LINE__, "", format, ##args)
+#include "logging.h"
 
-//
-// Assembles a vsprintf style args "format", args...
-//
-#define LOGVARGS(file, line, prefix, format, args...) "dsi[%s:%d]%s" prefix format, file, line, __func__, ##args
-//
-// Send the LOGVARGS to syslog at the passed level
-//
 
-#ifdef DSI_SYSLOG
-#define SYSLOG(level, file, line, prefix, format, args...)  syslog(level, LOGVARGS(file, line, prefix, format, ##args))
-#else
-#define SYSLOG(level, file, line, prefix, format, args...)
-#endif
-//
-// Send the LOGVARGS to printf
-//
-#define STDLOG(level, file, line, prefix, format, args...) {printf( LOGVARGS(file, line, prefix, format, ##args));}
+int dsi_loglevel = 0;
 
-#endif // LOGSUPPORT_H
+void dsi_setLogLevel(int level){
+  dsi_loglevel = level;
+}
+
+int dsi_isLogLevel(int level){
+  return level <= dsi_loglevel;
+}

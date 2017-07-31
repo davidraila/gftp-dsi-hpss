@@ -50,7 +50,7 @@
 #include "cksm.h"
 #include "pio.h"
 #include "stat.h"
-#include "logsupport.h"
+#include "logging.h"
 int sigcatch(int sig, void** pp_oldhandler, void** pp_oldset, int*);
 int sigreset(int sig, void** pp_oldhandler, void** pp_oldset, int*);
 

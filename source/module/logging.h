@@ -1,9 +1,9 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright Â© 2017 NCSA.  All rights reserved.
  *
- * Developed by:
+ * Author:  David Raila, raila@illinois.edu
  *
  * Storage Enabling Technologies (SET)
  *
@@ -38,27 +38,45 @@
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
  * DEALINGS WITH THE SOFTWARE.
  */
-#ifndef HPSS_DSI_CONFIG_H
-#define HPSS_DSI_CONFIG_H
+#ifndef LOGSUPPORT_h
+#define LOGSUPPORT_h
 
-/*
- * Globus includes
- */
-#include <globus_gridftp_server.h>
+#define DSI_SYSLOG // should be added to autoconf and/or cmdline flags
 
-#define DEFAULT_CONFIG_FILE "/var/hpss/etc/gridftp.conf"
+#include <syslog.h>
+#include <unistd.h>
 
-typedef struct config {
-  char *LoginName;
-  char *AuthenticationMech;
-  char *Authenticator;
-  int QuotaSupport;
-  int UDAChecksumSupport;
-  int LogLevel;
-} config_t;
+void dsi_setLogLevel(int level);
+int dsi_isLogLevel(int level);
 
-globus_result_t config_init(config_t **Config);
+//
+// User interfaces
+//
+#define EMERG(format, args...) SYSLOG(LOG_EMERG, __FILE__, __LINE__, "", format, ##args)
+#define ALERT(format, args...) SYSLOG(LOG_ALERT, __FILE__, __LINE__, "", format, ##args)
+#define CRIT(format, args...) SYSLOG(LOG_CRIT, __FILE__, __LINE__, "", format, ##args)
+#define ERR(format, args...) SYSLOG(LOG_ERR, __FILE__, __LINE__, "", format, ##args)
+#define WARNING(format, args...) SYSLOG(LOG_WARNING, __FILE__, __LINE__, "", format, ##args)
+#define NOTICE(format, args...) SYSLOG(LOG_NOTICE, __FILE__, __LINE__, "", format, ##args)
+#define INFO(format, args...) SYSLOG(LOG_INFO, __FILE__, __LINE__, "", format, ##args)
+#define DEBUG(format, args...) SYSLOG(LOG_DEBUG, __FILE__, __LINE__, "", format, ##args)
 
-void config_destroy(config_t *Config);
+//
+// Assembles a vsprintf style args "format", args...
+//
+#define LOGVARGS(file, line, prefix, format, args...) "dsi[%s:%d]%s" prefix format, file, line, __func__, ##args
+//
+// Send the LOGVARGS to syslog at the passed level
+//
 
-#endif /* HPSS_DSI_CONFIG_H */
+#ifdef DSI_SYSLOG
+#define SYSLOG(level, file, line, prefix, format, args...)  { if (dsi_isLogLevel(level)) syslog(LOG_ALERT, LOGVARGS(file, line, prefix, format, ##args));}
+#else
+#define SYSLOG(level, file, line, prefix, format, args...)
+#endif
+//
+// Send the LOGVARGS to printf
+//
+#define STDLOG(level, file, line, prefix, format, args...) {printf( LOGVARGS(file, line, prefix, format, ##args));}
+
+#endif // LOGSUPPORT_H

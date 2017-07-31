@@ -59,6 +59,7 @@
  * Local includes
  */
 #include "config.h"
+#include "logging.h"
 
 /*
  * The config file search order is:
@@ -194,6 +195,19 @@ static void config_find_next_word(char *Buffer, char **Word, int *Length) {
   }
 }
 
+int config_get_loglevel(char *Value, int ValueLength) {
+  INFO(": level %s", Value);
+  if (!strncasecmp(Value, "EMERG", ValueLength)) return LOG_EMERG;
+  if (!strncasecmp(Value, "ALERT", ValueLength)) return LOG_ALERT;
+  if (!strncasecmp(Value, "CRIT", ValueLength)) return LOG_CRIT;
+  if (!strncasecmp(Value, "ERR", ValueLength)) return LOG_ERR;
+  if (!strncasecmp(Value, "WARNING", ValueLength)) return LOG_WARNING;
+  if (!strncasecmp(Value, "NOTICE", ValueLength)) return LOG_NOTICE;
+  if (!strncasecmp(Value, "INFO", ValueLength)) return LOG_INFO;
+  if (!strncasecmp(Value, "DEBUG", ValueLength)) return LOG_DEBUG;
+  return 0;
+}
+
 int config_get_bool_value(char *Value, int ValueLength) {
   if (!strncasecmp(Value, "on", ValueLength) ||
       !strncasecmp(Value, "true", ValueLength) ||
@@ -267,6 +281,10 @@ static globus_result_t config_parse_file(char *ConfigFilePath,
     } else if (key_length == strlen("UDAChecksumSupport") &&
                strncasecmp(key, "UDAChecksumSupport", key_length) == 0) {
       Config->UDAChecksumSupport = config_get_bool_value(value, value_length);
+    } else if (key_length == strlen("LogLevel") &&
+          strncasecmp(key, "LogLevel", key_length) == 0) {
+            INFO(": set LogLevel: %s", value);
+          Config->LogLevel = config_get_loglevel(value, value_length);
     } else {
       result = GlobusGFSErrorWrapFailed("Parsing config options",
                                         GlobusGFSErrorGeneric(buffer));
