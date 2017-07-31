@@ -73,8 +73,8 @@ SOURCES = dsi.c \
 
 libglobus_gridftp_server_hpss_real_la_SOURCES=$(SOURCES)
 
-CPPFLAGS=-Wall -DLINUX $(GLOBUS_CPPFLAGS) -I$(HPSS_ROOT)/include
-LDFLAGS=-L$(HPSS_ROOT)/lib -Wl,-rpath,$(HPSS_ROOT)/lib $(GLOBUS_LDFLAGS)
+CPPFLAGS=-Wall -DLINUX $(GLOBUS_CPPFLAGS) -I$(HPSS_ROOT)/include -rdynamic
+LDFLAGS=-L$(HPSS_ROOT)/lib -Wl,-rpath,$(HPSS_ROOT)/lib $(GLOBUS_LDFLAGS) -rdynamic
 
 #
 # IU and NERSC report that using krb fails because libhpssgss.so doesn't link against

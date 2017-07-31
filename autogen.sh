@@ -11,3 +11,4 @@ do
 	rm -f $symlink
 	cp $target $symlink
 done
+rm -rf autom4te.cache

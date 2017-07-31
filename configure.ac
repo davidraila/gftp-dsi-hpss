@@ -45,8 +45,8 @@ AC_PROG_LIBTOOL
 AC_PROG_CXX
 AC_PROG_CC
 AC_CONFIG_MACRO_DIR([m4])
-LDFLAGS+=" -rdynamic"
-CFLAGS+=" -rdynamic"
+#LDFLAGS+=" -Xlinker -rdynamic"
+#CFLAGS+=" -rdynamic"
 
 
 #
