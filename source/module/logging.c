@@ -39,7 +39,11 @@
  * DEALINGS WITH THE SOFTWARE.
  */
 
-
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
 #include "logging.h"
 
 
@@ -52,3 +56,73 @@ void dsi_setLogLevel(int level){
 int dsi_isLogLevel(int level){
   return level <= dsi_loglevel;
 }
+
+void backTrace() {
+  const unsigned MAX_FRAMES=256;
+  const unsigned MAX_FRAME_STRBUF=MAX_FRAMES*256; 
+  void *p_frames[MAX_FRAMES];
+  char bt_storage[MAX_FRAME_STRBUF];
+
+  size_t num_frames = backtrace(p_frames, MAX_FRAMES);
+  char ** bt_strings = backtrace_symbols(p_frames, num_frames);
+  char *cur = bt_storage;
+  for (int i = 0; i < num_frames; ++i)
+    cur += sprintf(cur, "%s\n", bt_strings[i]);
+  DEBUG(": %s", bt_storage);
+}
+
+static int sighit = 0;
+// Just print backtrace and continue
+void fault_handler(int sig) {
+  sighit++;
+  return;
+  DEBUG(": handling");
+  const unsigned MAX_FRAMES=256;
+  const unsigned MAX_FRAME_STRBUF=MAX_FRAMES*256; 
+  void *p_frames[MAX_FRAMES];
+  char bt_storage[MAX_FRAME_STRBUF];
+
+  size_t num_frames = backtrace(p_frames, MAX_FRAMES);
+  char ** bt_strings = backtrace_symbols(p_frames, num_frames);
+  char *cur = bt_storage;
+  for (int i = 0; i < num_frames; ++i)
+    cur += sprintf(cur, "%s\n", bt_strings[i]);
+  DEBUG(": %s %s", strsignal(sig), bt_storage);
+}
+
+int sigcatch(int sig, void** pp_oldhandler, void** pp_oldset, int *hit){
+  DEBUG(": setting handler sighit: %d", sighit);
+  sigset_t newset, oldset;
+  sigemptyset(&newset);
+  sigemptyset(&oldset);
+  sigaddset(&newset, SIGSEGV);
+   sigaddset(&newset, SIGABRT);
+  if (sigprocmask(SIG_UNBLOCK, &newset, &oldset))
+    return -1;
+    
+  void * oldhandler = signal(sig, fault_handler);
+  signal(SIGABRT, fault_handler);
+  if (oldhandler == SIG_ERR){
+    ERR(": signal(%d) failed", sig);
+    sigprocmask(SIG_SETMASK, &oldset, NULL);
+    return -1;
+  }
+  *pp_oldhandler = malloc(sizeof(void*));
+  memcpy(*pp_oldhandler, &oldhandler, sizeof(oldhandler));
+  *pp_oldset = malloc(sizeof(sigset_t));
+  memcpy(*pp_oldset, &oldset, sizeof(oldset));
+  DEBUG(": handler set");
+  return 0;
+}
+
+void sigreset(int sig, void ** pp_oldhandler, void** pp_oldset, int *hit){
+  DEBUG(": resetting handler");
+  int rc = sigprocmask(SIG_SETMASK, *pp_oldset, NULL);
+  if (rc) DEBUG(": restore failed");
+  signal(sig, *pp_oldhandler);
+  free(pp_oldhandler);
+  free(pp_oldset);
+  *hit = sighit;
+  DEBUG(": handler reset");
+}
+

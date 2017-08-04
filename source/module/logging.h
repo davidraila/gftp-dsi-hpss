@@ -45,9 +45,11 @@
 
 #include <syslog.h>
 #include <unistd.h>
+#include "dmalloc.h"
 
 void dsi_setLogLevel(int level);
 int dsi_isLogLevel(int level);
+void backTrace();
 
 //
 // User interfaces
