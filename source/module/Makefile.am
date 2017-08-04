@@ -67,15 +67,15 @@ SOURCES = dsi.c \
 	      cksm.c \
 	      pio.c \
 	      dl.c \
-				logging.c \
+		  logging.c \
 	      markers.c \
 	      stage.c \
 	      stat.c
 
 libglobus_gridftp_server_hpss_real_la_SOURCES=$(SOURCES)
 
-CPPFLAGS=-Wall -DLINUX $(GLOBUS_CPPFLAGS) -I$(HPSS_ROOT)/include -rdynamic
-LDFLAGS=-L$(HPSS_ROOT)/lib -Wl,-rpath,$(HPSS_ROOT)/lib $(GLOBUS_LDFLAGS) -rdynamic
+CPPFLAGS=-Wall -DDMALLOC_FUNC_CHECK -DLINUX $(GLOBUS_CPPFLAGS)  -I$(HPSS_ROOT)/include -rdynamic
+LDFLAGS=-L/usr/local/lib -ldmallocth -L$(HPSS_ROOT)/lib -Wl,-rpath,$(HPSS_ROOT)/lib $(GLOBUS_LDFLAGS) -rdynamic
 
 #
 # IU and NERSC report that using krb fails because libhpssgss.so doesn't link against
@@ -83,4 +83,4 @@ LDFLAGS=-L$(HPSS_ROOT)/lib -Wl,-rpath,$(HPSS_ROOT)/lib $(GLOBUS_LDFLAGS) -rdynam
 # environment. It is necessary to link these here; the XDR/libtirpc issue causes the
 # runtime dynamic linking to fail without this.
 #
-libglobus_gridftp_server_hpss_real_la_LIBADD=-lglobus_gridftp_server -lhpsskrb5auth -lhpssunixauth -lhpss
+libglobus_gridftp_server_hpss_real_la_LIBADD=-lglobus_gridftp_server -lhpsskrb5auth -lhpssunixauth -lhpss 
