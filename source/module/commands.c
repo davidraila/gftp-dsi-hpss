@@ -63,6 +63,7 @@
 #include "commands.h"
 #include "config.h"
 #include "stage.h"
+#include "logging.h"
 
 globus_result_t commands_init(globus_gfs_operation_t Operation) {
   GlobusGFSName(commands_init);
@@ -71,9 +72,10 @@ globus_result_t commands_init(globus_gfs_operation_t Operation) {
       Operation, "SITE STAGE", GLOBUS_GFS_HPSS_CMD_SITE_STAGE, 4, 4,
       "SITE STAGE <sp> timeout <sp> path", GLOBUS_TRUE, GFS_ACL_ACTION_READ);
 
-  if (result != GLOBUS_SUCCESS)
-    return GlobusGFSErrorWrapFailed("Failed to add custom 'SITE STAGE' command",
-                                    result);
+  if (result != GLOBUS_SUCCESS){
+    ERR(": globus_gridftp_server_add_command failed");
+    return GlobusGFSErrorWrapFailed("Failed to add custom 'SITE STAGE' command",result);
+  }
 
   return GLOBUS_SUCCESS;
 }
@@ -87,8 +89,10 @@ void commands_mkdir(globus_gfs_operation_t Operation,
 
   int retval = hpss_Mkdir(CommandInfo->pathname,
                           S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Mkdir(%s): failed, code %d, %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Mkdir", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -101,8 +105,10 @@ void commands_rmdir(globus_gfs_operation_t Operation,
   GlobusGFSName(commands_rmdir);
 
   int retval = hpss_Rmdir(CommandInfo->pathname);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Rmdir(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Rmdir", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -115,8 +121,10 @@ void commands_unlink(globus_gfs_operation_t Operation,
   GlobusGFSName(commands_unlink);
 
   int retval = hpss_Unlink(CommandInfo->pathname);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Unlink(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Unlink", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -142,14 +150,17 @@ void commands_rename(globus_gfs_operation_t Operation,
     retval =
         hpss_UserAttrSetAttrs(CommandInfo->from_pathname, &alist, NULL);
     if (retval) {
+      ERR(": hpss_UserAttrSetAttrs(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
       result = GlobusGFSErrorSystemError("hpss_UserAttrSetAttrs", -retval);
       goto cleanup;
     }
   }
 
   retval = hpss_Rename(CommandInfo->from_pathname, CommandInfo->pathname);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Rename(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Rename", -retval);
+  }
 
 cleanup:
   Callback(Operation, result, NULL);
@@ -163,8 +174,10 @@ void commands_chmod(globus_gfs_operation_t Operation,
   GlobusGFSName(commands_chmod);
 
   int retval = hpss_Chmod(CommandInfo->pathname, CommandInfo->chmod_mode);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Chmod(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Chmod", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -179,11 +192,15 @@ globus_result_t session_get_gid(char *GroupName, int *Gid) {
 
   /* Find the passwd entry. */
   retval = getgrnam_r(GroupName, &group_buf, buffer, sizeof(buffer), &group);
-  if (retval != 0)
+  if (retval != 0){
+    ERR(": getgrnam_r failed, code %d %s", retval, strerror(errno));
     return GlobusGFSErrorSystemError("getgrnam_r", errno);
+  }
 
-  if (group == NULL)
+  if (group == NULL) {
+    ERR(": group lookup failed");
     return GlobusGFSErrorGeneric("Group not found");
+  }
 
   /* Copy out the gid */
   *Gid = group->gr_gid;
@@ -202,6 +219,7 @@ void commands_chgrp(globus_gfs_operation_t Operation,
   hpss_stat_t hpss_stat_buf;
   int retval = hpss_Stat(CommandInfo->pathname, &hpss_stat_buf);
   if (retval) {
+    ERR(": hpss_Stat(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Stat", -retval);
     Callback(Operation, result, NULL);
     return;
@@ -218,8 +236,10 @@ void commands_chgrp(globus_gfs_operation_t Operation,
   }
 
   retval = hpss_Chown(CommandInfo->pathname, hpss_stat_buf.st_uid, gid);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Chown(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Chgrp", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -236,8 +256,10 @@ void commands_utime(globus_gfs_operation_t Operation,
   times.modtime = CommandInfo->utime_time;
 
   int retval = hpss_Utime(CommandInfo->pathname, &times);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Utime(%s) failed, code %d %s", CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Utime", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -250,8 +272,11 @@ void commands_symlink(globus_gfs_operation_t Operation,
   GlobusGFSName(commands_symlink);
 
   int retval = hpss_Symlink(CommandInfo->from_pathname, CommandInfo->pathname);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Symlink(%s, %s) failed, code %d %s", CommandInfo->from_pathname,
+      CommandInfo->pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Symlink", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -265,8 +290,10 @@ void commands_truncate(globus_gfs_operation_t Operation,
 
   int retval =
       hpss_Truncate(CommandInfo->from_pathname, CommandInfo->cksm_offset);
-  if (retval)
+  if (retval){
+    ERR(": hpss_Truncate(%s) failed, code %d %s", CommandInfo->from_pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_Truncate", -retval);
+  }
 
   Callback(Operation, result, NULL);
 }
@@ -327,6 +354,7 @@ void commands_run(globus_gfs_operation_t Operation,
   case GLOBUS_GFS_CMD_HTTP_CONFIG:
   case GLOBUS_GFS_CMD_SITE_TASKID:
   default:
+    ERR(": operation(%p) failed: not supported", Operation);
     return Callback(Operation, GlobusGFSErrorGeneric("Not Supported"), NULL);
   }
 }

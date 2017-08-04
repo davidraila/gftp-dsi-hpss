@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2014-2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2014-2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -54,6 +54,7 @@
  */
 #include "dl.h"
 #include "markers.h"
+#include "logging.h"
 
 typedef void (*globus_perf_markers_func_t)(globus_gfs_operation_t Operation,
                                            globus_off_t Length);

@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -193,6 +193,7 @@ static void config_find_next_word(char *Buffer, char **Word, int *Length) {
     (*Length)++;
     Buffer++;
   }
+  DEBUG(": config parsed %s", *Word);
 }
 
 int config_get_loglevel(char *Value, int ValueLength) {
@@ -227,7 +228,8 @@ static globus_result_t config_parse_file(char *ConfigFilePath,
   char *tmp = NULL;
   char *key = NULL;
   char *value = NULL;
-  char buffer[1024];
+  const int bufsz = 1024*10;
+  char buffer[bufsz];
   globus_result_t result = GLOBUS_SUCCESS;
 
   GlobusGFSName(config_parse_file);

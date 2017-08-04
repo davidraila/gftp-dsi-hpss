@@ -60,7 +60,8 @@
 struct retr_info;
 
 typedef struct {
-  char *Buffer;
+  void *Buffer;
+  void *_Buffer; // using hpss aligned mem
   struct retr_info *RetrInfo;
 #define VALID_TAG 0xDEADBEEF
 #define INVALID_TAG 0x00000000

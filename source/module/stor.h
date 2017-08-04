@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -65,7 +65,8 @@
 struct stor_info;
 
 typedef struct {
-  char *Buffer;
+  void *Buffer;
+  void *_Buffer;
   globus_off_t BufferOffset;   // Moves as buffer is consumed
   globus_off_t TransferOffset; // Moves as BufferOffset moves
   globus_off_t BufferLength;   // Moves as BufferOffset moves
@@ -77,7 +78,7 @@ typedef struct {
 
 typedef struct stor_info {
   globus_gfs_operation_t Operation;
-  globus_gfs_transfer_info_t *TransferInfo;
+  globus_gfs_transfer_info_t TransferInfo;
 
   int FileFD;
 

@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2014-2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2014-2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -53,6 +53,7 @@
  * Local includes
  */
 #include "dl.h"
+#include "logging.h"
 
 int dl_symbol_avail(const char *Symbol) {
   void *dl_handle = NULL;

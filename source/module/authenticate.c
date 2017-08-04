@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -58,12 +58,14 @@
 #include <hpss_errno.h>
 #include <hpss_mech.h>
 
+#include "logging.h"
 /*
  * Local includes
  */
 #include "authenticate.h"
 
 globus_result_t authenticate_get_uid(char *UserName, int *Uid) {
+  DEBUG();
   struct passwd *passwd = NULL;
   struct passwd passwd_buf;
   char buffer[1024];
@@ -73,11 +75,15 @@ globus_result_t authenticate_get_uid(char *UserName, int *Uid) {
 
   /* Find the passwd entry. */
   retval = getpwnam_r(UserName, &passwd_buf, buffer, sizeof(buffer), &passwd);
-  if (retval != 0)
+  if (retval != 0){
+    ERR(": getpwnam_r(%s) failed, code %d, %s", UserName, retval, strerror(errno));
     return GlobusGFSErrorSystemError("getpwnam_r", errno);
+  }
 
-  if (passwd == NULL)
+  if (passwd == NULL){
+    ERR(": passwd(NULL) failed");
     return GlobusGFSErrorGeneric("Account not found");
+  }
 
   /* Copy out the uid */
   *Uid = passwd->pw_uid;
@@ -87,6 +93,7 @@ globus_result_t authenticate_get_uid(char *UserName, int *Uid) {
 
 globus_result_t authenticate(char *LoginName, char *AuthenticationMech,
                              char *Authenticator, char *UserName) {
+                               DEBUG(": %s %s %s %s", LoginName, AuthenticationMech, Authenticator,UserName);
   int uid = -1;
   char *authenticator = NULL;
   globus_result_t result = GLOBUS_SUCCESS;
@@ -97,20 +104,26 @@ globus_result_t authenticate(char *LoginName, char *AuthenticationMech,
 
   /* Get the current HPSS client configuration. */
   int retval = hpss_GetConfiguration(&api_config);
-  if (retval != HPSS_E_NOERROR)
+  if (retval != HPSS_E_NOERROR){
+    ERR(": hpss_GetConfiguration failed");
     return GlobusGFSErrorSystemError("hpss_GetConfiguration", -retval);
+  }
 
   /* Translate the authentication mechanism. */
   retval =
       hpss_AuthnMechTypeFromString(AuthenticationMech, &api_config.AuthnMech);
-  if (retval != HPSS_E_NOERROR)
+  if (retval != HPSS_E_NOERROR){
+    ERR(": hpss_AuthnMechTypeFromString failed");
     return GlobusGFSErrorSystemError("hpss_AuthnMechTypeFromString()", -retval);
+  }
 
   /* Parse the authenticator. */
   retval = hpss_ParseAuthString(Authenticator, &api_config.AuthnMech,
                                 &auth_type, (void **)&authenticator);
-  if (retval != HPSS_E_NOERROR)
+  if (retval != HPSS_E_NOERROR){
+    ERR(": hpss_ParseAuthString failed");
     return GlobusGFSErrorSystemError("hpss_ParseAuthString()", -retval);
+  }
 
   /* Now set the current HPSS client configuration. */
   //	api_config.Flags  =  API_USE_CONFIG;
@@ -122,12 +135,16 @@ globus_result_t authenticate(char *LoginName, char *AuthenticationMech,
   /* Now log into HPSS using our configured 'super user' */
   retval = hpss_SetLoginCred(LoginName, api_config.AuthnMech,
                              hpss_rpc_cred_client, auth_type, authenticator);
-  if (retval != HPSS_E_NOERROR)
+  if (retval != HPSS_E_NOERROR){
+    ERR(": hpss_SetLoginCred(%s) failed", LoginName);
     return GlobusGFSErrorSystemError("hpss_SetLoginCred()", -retval);
+  }
 
   result = authenticate_get_uid(UserName, &uid);
-  if (result)
+  if (result){
+    ERR(": authenticate_get_uid(%s) failed", UserName);
     return result;
+  }
 
   /*
    * Now masquerade as this user. This will lookup uid in our realm and
@@ -135,8 +152,11 @@ globus_result_t authenticate(char *LoginName, char *AuthenticationMech,
    * /var/hpss/etc/auth.conf, authz.conf files.
    */
   retval = hpss_LoadDefaultThreadState(uid, hpss_Umask(0), NULL);
-  if (retval != HPSS_E_NOERROR)
+  if (retval != HPSS_E_NOERROR){
+    ERR(": hpss_LoadDefaultThreadState failed");
     return GlobusGFSErrorSystemError("hpss_LoadDefaultThreadState()", -retval);
-
+  }
+  
+    DEBUG(": return success");
   return GLOBUS_SUCCESS;
 }

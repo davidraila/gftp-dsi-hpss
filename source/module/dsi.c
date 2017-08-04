@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright � 2012-2014 NCSA.  All rights reserved.
+ * Copyright  2012-2014 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -43,6 +43,7 @@
  * System includes
  */
 #include <string.h>
+#include <mcheck.h>
 
 /*
  * Globus includes
@@ -66,62 +67,7 @@
 #include "stat.h"
 #include "stor.h"
 #include "config.h"
-#include "execinfo.h"
 
-static int sighit = 0;
-// Just print backtrace and continue
-void fault_handler(int sig) {
-  sighit++;
-  return;
-  DEBUG(": handling");
-  const unsigned MAX_FRAMES=256;
-  const unsigned MAX_FRAME_STRBUF=MAX_FRAMES*256; 
-  void *p_frames[MAX_FRAMES];
-  char bt_storage[MAX_FRAME_STRBUF];
-
-  size_t num_frames = backtrace(p_frames, MAX_FRAMES);
-  char ** bt_strings = backtrace_symbols(p_frames, num_frames);
-  char *cur = bt_storage;
-  for (int i = 0; i < num_frames; ++i)
-    cur += sprintf(cur, "%s\n", bt_strings[i]);
-  DEBUG(": %s %s", strsignal(sig), bt_storage);
-}
-
-int sigcatch(int sig, void** pp_oldhandler, void** pp_oldset, int *hit){
-  DEBUG(": setting handler sighit: %d", sighit);
-  sigset_t newset, oldset;
-  sigemptyset(&newset);
-  sigemptyset(&oldset);
-  sigaddset(&newset, SIGSEGV);
-   sigaddset(&newset, SIGABRT);
-  if (sigprocmask(SIG_UNBLOCK, &newset, &oldset))
-    return -1;
-    
-  void * oldhandler = signal(sig, fault_handler);
-  signal(SIGABRT, fault_handler);
-  if (oldhandler == SIG_ERR){
-    ERR(": signal(%d) failed", sig);
-    sigprocmask(SIG_SETMASK, &oldset, NULL);
-    return -1;
-  }
-  *pp_oldhandler = malloc(sizeof(void*));
-  memcpy(*pp_oldhandler, &oldhandler, sizeof(oldhandler));
-  *pp_oldset = malloc(sizeof(sigset_t));
-  memcpy(*pp_oldset, &oldset, sizeof(oldset));
-  DEBUG(": handler set");
-  return 0;
-}
-
-void sigreset(int sig, void ** pp_oldhandler, void** pp_oldset, int *hit){
-  DEBUG(": resetting handler");
-  int rc = sigprocmask(SIG_SETMASK, *pp_oldset, NULL);
-  if (rc) DEBUG(": restore failed");
-  signal(sig, *pp_oldhandler);
-  free(pp_oldhandler);
-  free(pp_oldset);
-  *hit = sighit;
-  DEBUG(": handler reset");
-}
 
 static void dsi_init(globus_gfs_operation_t Operation,
               globus_gfs_session_info_t *SessionInfo) {
@@ -144,17 +90,27 @@ static void dsi_init(globus_gfs_operation_t Operation,
   }
   INFO(": loglevel: %d", config->LogLevel);
 
-    // set log level
-    int mask = LOG_INFO;
-    if (config->LogLevel) mask = config->LogLevel;
-    dsi_setLogLevel(mask);
-    ALERT(": alert");
-    CRIT(": crit");
-    ERR(": err");
-    WARNING(": warn");
-    NOTICE(": notice");
-    INFO(": info");
-    DEBUG(": debug");
+  // set log level
+  int mask = LOG_INFO;
+  if (config->LogLevel) mask = config->LogLevel;
+  dsi_setLogLevel(mask);
+  ALERT(": Notice: logging ALERT level messages");
+  CRIT(": Notice: logging CRIT level messages");
+  ERR(": Notice: logging ERR level messages");
+  WARNING(": Notice: logging WARNING level messages");
+  NOTICE(": Notice: logging NOTICE level messages");
+  INFO(": Notice: logging INFO level messages");
+  DEBUG(": Notice: logging DEBUG level messages");
+
+  // memory tracing via env var: MALLOC_TRACE=<filename>
+  const char *mtrace_file = getenv("MALLOC_TRACE");
+  if (mtrace_file){
+    INFO(": Memory tracing to %s", mtrace_file);
+    mtrace();
+  }
+  sigset_t sigs, osigs;
+  sigfillset(&sigs);
+  sigprocmask(SIG_UNBLOCK, &sigs, &osigs);
 
   /* Now authenticate. */
   result = authenticate(config->LoginName, config->AuthenticationMech,
@@ -176,6 +132,7 @@ static void dsi_init(globus_gfs_operation_t Operation,
 
   home = strdup(user_cred.Directory);
   if (!home) {
+    ERR(": strdup failed");
     result = GlobusGFSErrorMemory("home directory");
     goto cleanup;
   }
@@ -222,6 +179,7 @@ int dsi_restart_transfer(globus_gfs_transfer_info_t *TransferInfo) {
   }
 
   globus_range_list_at(TransferInfo->range_list, 0, &offset, &length);
+  DEBUG(": return %d", (offset != 0 || length != -1));
   return (offset != 0 || length != -1);
 }
 
@@ -245,7 +203,7 @@ static void dsi_recv(globus_gfs_operation_t Operation,
   if (dsi_restart_transfer(TransferInfo) && !markers_restart_supported()) {
     result = GlobusGFSErrorGeneric("Restarts are not supported");
     globus_gridftp_server_finished_transfer(Operation, result);
-    ERR("(%s): dsi_restart_transfer failed", TransferInfo->pathname);
+    ERR(": dsi_restart_transfer(%s) failed", TransferInfo->pathname);
     return;
   }
   stor(Operation, TransferInfo, UserArg);
@@ -272,7 +230,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   
   // lstat, set isLink, isDir
   if ((ret = stat_hpss_lstat(p, &hstat))) {
-    // not really error // ERR(": hpss_Lstat(%s) failed: code %d: %s return", p, ret, strerror(errno));
+    DEBUG(": hpss_Lstat(%s) failed(nonfatal): code %d: %s return", p, ret, strerror(errno));
     ret = GlobusGFSErrorSystemError(strerror(errno), -ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
     return;
@@ -305,7 +263,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   if ((ndents = stat_hpss_dirent_count(p, &dir_attrs)) < 1) {
     ret = GlobusGFSErrorSystemError(strerror(ret), -ret);
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
-    ERR(": no dirent count");
+    ERR(": stat_hpss_dirent_count(%s) failed, no dirent count", p);
     return;
   }
   DEBUG("(%p): %d total entries, %d per message", p, ndents, MAX_DENTS_PER_MSG);
@@ -314,7 +272,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
   char dir_path[HPSS_MAX_PATH_NAME];
   ns_ObjHandle_t fileset_root;
   if ((ret = hpss_GetPathHandle(&dir_attrs.ObjectHandle, &fileset_root, dir_path)) < 0){
-    ERR(": hpss_GetPathHandle failed: code %d", ret);
+    ERR(": hpss_GetPathHandle failed: code %d, %s", ret, strerror(errno));
     //stat_destroy(&gstat);
     //stat_destroy_array(gdents, ndents);//check
     ret = GlobusGFSErrorSystemError(strerror(ret), -ret);
@@ -340,7 +298,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
       sizeof(hdents), sizeof(gdents), sizeof(globus_gfs_stat_t), sizeof(ns_DirEntry_t));
 
     if ((ret = stat_hpss_getdents(&dir_attrs.ObjectHandle, &hdents[0], MAX_DENTS_PER_MSG, &dir_offset, &end)) < 0) {
-    ERR(": stat_hpss_getDents failed: code %d", ret);
+    ERR(": stat_hpss_getDents failed: code %d, %s", ret, strerror(errno));
     ret = GlobusGFSErrorSystemError("getdents failed", -ret);
     break;
     }
@@ -377,7 +335,7 @@ void dsi_stat(globus_gfs_operation_t Operation,
     }
   }
   if (!end) {
-    ERR("(%s): dir stat failed, code %d", p, ret);
+    ERR("directory stat processing failed for %s, code %d, %s", p, ret, strerror(errno));
     ret = GlobusGFSErrorGeneric(strerror(errno));
     globus_gridftp_server_finished_stat(Operation, ret, NULL, 0);
   }

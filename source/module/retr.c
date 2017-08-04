@@ -50,12 +50,16 @@
 #include "markers.h"
 #include "pio.h"
 #include "retr.h"
+#include "stat.h"
+#include "logging.h"
 
 globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
                                       int *FileStripeWidth) {
   hpss_cos_hints_t hints_in;
   hpss_cos_hints_t hints_out;
   hpss_cos_priorities_t priorities;
+
+  DEBUG("(%s)", Pathname);
 
   GlobusGFSName(retr_open_for_reading);
 
@@ -73,12 +77,15 @@ globus_result_t retr_open_for_reading(char *Pathname, int *FileFD,
   /* Open the HPSS file. */
   *FileFD = hpss_Open(Pathname, O_RDONLY, S_IRUSR | S_IWUSR, &hints_in,
                       &priorities, &hints_out);
-  if (*FileFD < 0)
+  if (*FileFD < 0) {
+    ERR(": hpss_Open(%s) failed: code %d, return", Pathname, *FileFD);
     return GlobusGFSErrorSystemError("hpss_Open", -(*FileFD));
+  }
 
   /* Copy out the file stripe width. */
   *FileStripeWidth = hints_out.StripeWidth;
 
+  DEBUG("(%s): success, return", Pathname);
   return GLOBUS_SUCCESS;
 }
 
@@ -88,8 +95,12 @@ void retr_gridftp_callout(globus_gfs_operation_t Operation,
   retr_buffer_t *retr_buffer = UserArg;
   retr_info_t *retr_info = retr_buffer->RetrInfo;
 
-  if (retr_buffer->Valid != VALID_TAG)
+  INFO(": operation: %p", Operation);
+
+  if (retr_buffer->Valid != VALID_TAG) {
+    ERR(": invalid operation %p", Operation); // CHECK
     return;
+  }
 
   pthread_mutex_lock(&retr_info->Mutex);
   {
@@ -101,6 +112,7 @@ void retr_gridftp_callout(globus_gfs_operation_t Operation,
     pthread_cond_signal(&retr_info->Cond);
   }
   pthread_mutex_unlock(&retr_info->Mutex);
+  DEBUG(": operation %p, return", Operation);
 }
 
 /*
@@ -112,6 +124,7 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
   int free_buf_cnt = 0;
   int cur_conn_cnt = 0;
 
+  DEBUG();
   GlobusGFSName(retr_get_free_buffer);
 
   /*
@@ -128,8 +141,10 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
       RetrInfo->ConnChkCnt = 0;
 
     /* Check for error first. */
-    if (RetrInfo->Result)
+    if (RetrInfo->Result) {
+        DEBUG(": return %d", RetrInfo->Result);
       return RetrInfo->Result;
+    }
 
     /* We can exit the loop if we have less than OptConnCnt buffers in use. */
     all_buf_cnt = globus_list_size(RetrInfo->AllBufferList);
@@ -145,18 +160,24 @@ globus_result_t retr_get_free_buffer(retr_info_t *RetrInfo,
   if (!globus_list_empty(RetrInfo->FreeBufferList)) {
     *FreeBuffer =
         globus_list_remove(&RetrInfo->FreeBufferList, RetrInfo->FreeBufferList);
+    DEBUG(": return");
     return GLOBUS_SUCCESS;
   }
 
-  *FreeBuffer = malloc(sizeof(retr_buffer_t));
-  if (!*FreeBuffer)
+  //*FreeBuffer = malloc(sizeof(retr_buffer_t)); ///CHECK
+  //if (!*FreeBuffer)
+    //return GlobusGFSErrorMemory("free_buffer");
+  int rc = hpss_PAMalloc(RetrInfo->BlockSize, &(*FreeBuffer)->_Buffer, &(*FreeBuffer)->Buffer);
+  DEBUG("PMA: buf %p _buf %p", (*FreeBuffer)->Buffer, (*FreeBuffer)->_Buffer);
+  //(*FreeBuffer)->Buffer = malloc(RetrInfo->BlockSize);
+  if (!(*FreeBuffer)->Buffer) {
+    ERR(": PAMalloc(%ld) failed, code %d, %s", RetrInfo->BlockSize, rc, strerror(errno));
     return GlobusGFSErrorMemory("free_buffer");
-  (*FreeBuffer)->Buffer = malloc(RetrInfo->BlockSize);
-  if (!(*FreeBuffer)->Buffer)
-    return GlobusGFSErrorMemory("free_buffer");
-  (*FreeBuffer)->RetrInfo = RetrInfo;
+  }
+  (*FreeBuffer)->RetrInfo = RetrInfo;	///CHECK
   (*FreeBuffer)->Valid = VALID_TAG;
   globus_list_insert(&RetrInfo->AllBufferList, *FreeBuffer);
+  DEBUG(": return");
   return GLOBUS_SUCCESS;
 }
 
@@ -166,6 +187,8 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
   retr_buffer_t *free_buffer = NULL;
   retr_info_t *retr_info = CallbackArg;
   globus_result_t result = GLOBUS_SUCCESS;
+
+  DEBUG(": buf(%p) len(%u) off(%lx) CB(%p)", ReadyBuffer, *Length, Offset, CallbackArg );
 
   GlobusGFSName(retr_pio_callout);
 
@@ -180,6 +203,7 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
       if (!retr_info->Result)
         retr_info->Result = result;
       rc = PIO_END_TRANSFER; /* Signal to shutdown. */
+      ERR(": retr_get_free_buffer failed: code %d", result);
       goto cleanup;
     }
 
@@ -190,9 +214,10 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
         Offset, -1, retr_gridftp_callout, free_buffer);
 
     if (result) {
-      if (!retr_info->Result)
+      if (!retr_info->Result) ///CHECK
         retr_info->Result = result;
       rc = PIO_END_TRANSFER; /* Signal to shutdown. */
+      ERR(": globus_gridftp_server_register_write failed: code %d", result);
       goto cleanup;
     }
 
@@ -201,12 +226,13 @@ int retr_pio_callout(char *ReadyBuffer, uint32_t *Length, uint64_t Offset,
   }
 cleanup:
   pthread_mutex_unlock(&retr_info->Mutex);
-
   retr_info->CurrentOffset += *Length;
+  DEBUG("return %d", rc);
   return rc;
 }
 
 void retr_wait_for_gridftp(retr_info_t *RetrInfo) {
+  DEBUG();
   pthread_mutex_lock(&RetrInfo->Mutex);
   {
     while (1) {
@@ -221,12 +247,13 @@ void retr_wait_for_gridftp(retr_info_t *RetrInfo) {
     }
   }
   pthread_mutex_unlock(&RetrInfo->Mutex);
+  DEBUG(": return");
 }
 
 void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
                                   int *Eot, void *UserArg) {
   retr_info_t *retr_info = UserArg;
-
+  DEBUG();
   assert(*Length <= retr_info->RangeLength);
 
   // PIO is telling us that this range (Offset, Length) is complete. However,
@@ -241,6 +268,7 @@ void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
     // Send it
     retr_pio_callout(buffer, &fill_size, retr_info->CurrentOffset, retr_info);
   }
+  DEBUG(": free buffer %p", buffer);
   free(buffer);
 
   retr_info->RangeLength -= *Length;
@@ -257,12 +285,13 @@ void retr_range_complete_callback(globus_off_t *Offset, globus_off_t *Length,
     retr_info->RangeLength = *Length;
     retr_info->CurrentOffset = *Offset;
   }
+  DEBUG(": return");
 }
 
 static int release_buffer(void *Datum, void *Arg) {
   ((retr_buffer_t *)Datum)->Valid = INVALID_TAG;
-  free(((retr_buffer_t *)Datum)->Buffer);
-
+  DEBUG(": free buffer %p", ((retr_buffer_t *)Datum)->_Buffer);
+  free(((retr_buffer_t *)Datum)->_Buffer);
   return 0;
 }
 
@@ -271,6 +300,7 @@ void retr_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   retr_info_t *retr_info = UserArg;
   int rc = 0;
 
+  DEBUG();
   GlobusGFSName(retr_transfer_complete_callback);
 
   globus_gridftp_server_finished_transfer(retr_info->Operation, result);
@@ -284,8 +314,10 @@ void retr_transfer_complete_callback(globus_result_t Result, void *UserArg) {
     result = retr_info->Result;
 
   rc = hpss_Close(retr_info->FileFD);
-  if (rc && !result)
+  if (rc && !result) {
     result = GlobusGFSErrorSystemError("hpss_Close", -rc);
+    ERR(": hpss_Close failed: %d", result);
+  }
 
   pthread_mutex_destroy(&retr_info->Mutex);
   pthread_cond_destroy(&retr_info->Cond);
@@ -293,6 +325,7 @@ void retr_transfer_complete_callback(globus_result_t Result, void *UserArg) {
   globus_list_search_pred(retr_info->AllBufferList, release_buffer, NULL);
   globus_list_destroy_all(retr_info->AllBufferList, free);
   free(retr_info);
+  DEBUG(": return");
 }
 
 void retr(globus_gfs_operation_t Operation,
@@ -303,11 +336,13 @@ void retr(globus_gfs_operation_t Operation,
   globus_result_t result = GLOBUS_SUCCESS;
   hpss_stat_t hpss_stat_buf;
 
+  DEBUG();
   GlobusGFSName(retr);
 
-  rc = hpss_Stat(TransferInfo->pathname, &hpss_stat_buf);
+  rc = stat_hpss_stat(TransferInfo->pathname, &hpss_stat_buf);
   if (rc) {
     result = GlobusGFSErrorSystemError("hpss_Stat", -rc);
+    ERR(": hpss_Stat failed: code %d, cleanup", rc);
     goto cleanup;
   }
 
@@ -317,6 +352,7 @@ void retr(globus_gfs_operation_t Operation,
   retr_info = malloc(sizeof(retr_info_t));
   if (!retr_info) {
     result = GlobusGFSErrorMemory("retr_info_t");
+    ERR(": malloc(%ld) failed", sizeof(retr_info_t));
     goto cleanup;
   }
   memset(retr_info, 0, sizeof(retr_info_t));
@@ -334,8 +370,10 @@ void retr(globus_gfs_operation_t Operation,
    */
   result = retr_open_for_reading(TransferInfo->pathname, &retr_info->FileFD,
                                  &file_stripe_width);
-  if (result)
+  if (result) {
+    ERR(": retr_open_for_reading(%s) failed: code %d, cleanup", TransferInfo->pathname, result);
     goto cleanup;
+  }
 
   globus_gridftp_server_begin_transfer(Operation, 0, NULL);
 
@@ -363,4 +401,5 @@ cleanup:
       free(retr_info);
     }
   }
+  INFO(": return");
 }

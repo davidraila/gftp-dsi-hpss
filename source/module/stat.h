@@ -68,9 +68,4 @@ globus_result_t stat_translate_dir_entry(ns_ObjHandle_t *ParentObjHandle,
                                          ns_DirEntry_t *DirEntry,
                                          globus_gfs_stat_t *GFSStat, char* dir_path, char *name_storage, char *symlink_storage);
 
-#ifdef NO
-void stat_destroy(globus_gfs_stat_t *);
-void stat_destroy_array(globus_gfs_stat_t *, int Count);
-#endif
-
 #endif /* HPSS_DSI_STAT_H */

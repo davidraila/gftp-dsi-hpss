@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -73,7 +73,7 @@ typedef struct {
   globus_gfs_operation_t Operation;
   globus_gfs_command_info_t *CommandInfo;
   config_t *Config;
-  char *Pathname;
+  char Pathname[HPSS_MAX_PATH_NAME];
   commands_callback Callback;
   MD5_CTX MD5Context;
   globus_result_t Result;
@@ -91,7 +91,7 @@ globus_result_t cksm_set_checksum(char *Pathname, config_t *Config,
                                   char *Checksum);
 
 globus_result_t checksum_get_file_sum(char *Pathname, config_t *Config,
-                                      char **ChecksumString);
+                                      char *ChecksumString);
 
 globus_result_t cksm_clear_checksum(char *Pathname, config_t *Config);
 

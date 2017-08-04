@@ -1,7 +1,7 @@
 /*
  * University of Illinois/NCSA Open Source License
  *
- * Copyright © 2015 NCSA.  All rights reserved.
+ * Copyright ï¿½ 2015 NCSA.  All rights reserved.
  *
  * Developed by:
  *
@@ -62,6 +62,7 @@
  */
 #include "stage.h"
 #include "stat.h"
+#include "logging.h"
 
 static globus_list_t *_gStageList = NULL;
 
@@ -110,13 +111,17 @@ globus_result_t stage_get_timeout(globus_gfs_operation_t Operation,
                                                GLOBUS_GFS_OP_INFO_CMD_ARGS,
                                                &argv, &argc);
 
-  if (result)
+  if (result){
+    ERR(": globus_gridftp_server_query_op_info failed, code %d", result);
     return GlobusGFSErrorWrapFailed("Unable to get command args", result);
+  }
 
   /* Convert the timeout. */
   retval = sscanf(argv[2], "%d", Timeout);
-  if (retval != 1)
+  if (retval != 1){
+    ERR(": timeout value failed: Illegal Timeout");
     return GlobusGFSErrorGeneric("Illegal timeout value");
+  }
 
   return GLOBUS_SUCCESS;
 }
@@ -194,7 +199,7 @@ void stage_check_residency(hpss_xfileattr_t *XFileAttr,
 
 globus_result_t stage_get_residency(char *Pathname,
                                     stage_file_residency *Residency) {
-  hpss_xfileattr_t xfileattr;
+  hpss_xfileattr_t xfileattr = {0};
   int retval = 0;
 
   GlobusGFSName(stage_get_residency);
@@ -209,8 +214,10 @@ globus_result_t stage_get_residency(char *Pathname,
       Pathname, API_GET_STATS_FOR_ALL_LEVELS | API_GET_XATTRS_NO_BLOCK, 0,
       &xfileattr);
 
-  if (retval)
+  if (retval){
+    ERR(": hpss_FileGetXAttributes(%s) failed, code %d, %s", Pathname, retval, strerror(errno));
     return GlobusGFSErrorSystemError("hpss_FileGetXAttributes", -retval);
+  }
 
   /* Get the residency */
   stage_check_residency(&xfileattr, Residency);
@@ -223,7 +230,7 @@ globus_result_t stage_get_residency(char *Pathname,
 globus_result_t stage_file(char *Pathname, int Timeout,
                            stage_file_residency *Residency) {
   globus_result_t result = GLOBUS_SUCCESS;
-  hpss_xfileattr_t xfileattr;
+  hpss_xfileattr_t xfileattr = {0};
   hpss_reqid_t reqid;
   hpssoid_t bitfile_id;
   time_t start_time = time(NULL);
@@ -241,8 +248,10 @@ globus_result_t stage_file(char *Pathname, int Timeout,
       Pathname, API_GET_STATS_FOR_ALL_LEVELS | API_GET_XATTRS_NO_BLOCK, 0,
       &xfileattr);
 
-  if (retval)
+  if (retval){
+    ERR(": hpss_FileGetXAttributes(%s) failed, code %d, %s", Pathname, retval, strerror(errno));
     return GlobusGFSErrorSystemError("hpss_FileGetXAttributes", -retval);
+  }
 
   stage_check_residency(&xfileattr, Residency);
 
@@ -270,6 +279,7 @@ globus_result_t stage_file(char *Pathname, int Timeout,
   retval = hpss_StageCallBack(Pathname, cast64m(0), xfileattr.Attrs.DataLength,
                               0, NULL, BFS_STAGE_ALL, &reqid, &bitfile_id);
   if (retval != 0) {
+    ERR(": hpss_StageCallBack(%s) failed, code %d, %s", Pathname, retval, strerror(errno));
     result = GlobusGFSErrorSystemError("hpss_StageCallBack()", -retval);
     goto cleanup;
   }

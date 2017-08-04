@@ -55,6 +55,7 @@
  * HPSS includes
  */
 #include <hpss_api.h>
+#include "hpss_memalign.h"
 
 #define PIO_END_TRANSFER 0xDEADBEEF
 
@@ -81,7 +82,8 @@ typedef void (*pio_transfer_complete_callback)(globus_result_t Result,
 
 typedef struct {
   int FD;
-  char *Buffer;
+  void *Buffer;
+  void *_Buffer;
   uint32_t BlockSize;
   uint64_t InitialOffset;
   uint64_t InitialLength;
